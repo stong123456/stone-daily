@@ -1,0 +1,20 @@
+{
+  "$schema": "https://railway.com/railway.schema.json",
+  "build": {
+    "builder": "DOCKERFILE",
+    "dockerfilePath": "Dockerfile.stream",
+    "watchPatterns": [
+      "workers/**",
+      "Dockerfile.stream",
+      "railway.json"
+    ]
+  },
+  "deploy": {
+    "healthcheckPath": "/health",
+    "healthcheckTimeout": 120,
+    "restartPolicyType": "ALWAYS",
+    "restartPolicyMaxRetries": 10,
+    "overlapSeconds": "10",
+    "drainingSeconds": "20"
+  }
+}
