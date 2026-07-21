@@ -13,7 +13,7 @@
 ```text
 CRON_SECRET=long-random-secret
 MARKET_STREAM_SYMBOLS=BTC,ETH,SOL,XRP,DOGE,ADA,AVAX,LINK,LTC,BCH,BNB,SUI
-NEXT_PUBLIC_MARKET_STREAM_URL=https://your-market-stream.up.railway.app
+NEXT_PUBLIC_MARKET_STREAM_URL=https://stone-daily-production.up.railway.app
 ```
 
 Optional Redis fallback:

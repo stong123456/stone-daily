@@ -22,6 +22,7 @@ type FeedStatus = { source: string; mode: "loading" | "live" | "cached" | "fallb
 
 const pageSize = 12;
 const defaultStreamSymbols = "BTC,ETH,SOL,XRP,DOGE,ADA,AVAX,LINK,LTC,BCH,BNB,SUI";
+const defaultMarketStreamUrl = "https://stone-daily-production.up.railway.app";
 
 function selectStreamSymbols(assets: MarketAsset[]) {
   const symbols: string[] = [];
@@ -90,7 +91,7 @@ export function MarketExplorer() {
   }, [cryptoStatus, stockStatus, tab]);
 
   useEffect(() => {
-    const baseUrl = process.env.NEXT_PUBLIC_MARKET_STREAM_URL?.trim().replace(/\/$/, "");
+    const baseUrl = (process.env.NEXT_PUBLIC_MARKET_STREAM_URL || defaultMarketStreamUrl).trim().replace(/\/$/, "");
     if (!baseUrl || typeof EventSource === "undefined") return;
 
     let streamUrl: URL;
