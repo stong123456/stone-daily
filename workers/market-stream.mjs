@@ -118,19 +118,48 @@ async function flushQuotes() {
   }
 }
 
-function connectFeed({ name, url, subscribe, handleMessage, heartbeat }) {
+function connectFeed({ name, url, urls, subscribe, handleMessage, heartbeat }) {
   let socket;
   let heartbeatTimer;
   let reconnectTimer;
   let stopped = false;
   let attempts = 0;
+  let endpointIndex = 0;
+  const endpoints = urls?.length ? urls : [url];
   const state = { status: "connecting", reconnects: 0 };
   feedStates.set(name, state);
+
+  const scheduleReconnect = (reason) => {
+    if (stopped || reconnectTimer) return;
+    if (heartbeatTimer) clearInterval(heartbeatTimer);
+    heartbeatTimer = undefined;
+    attempts += 1;
+    state.status = "reconnecting";
+    state.reconnects += 1;
+    endpointIndex = (endpointIndex + 1) % endpoints.length;
+    const delay = Math.min(30_000, 1_000 * 2 ** Math.min(attempts, 5));
+    console.warn(`[market-stream] ${name} ${reason}; reconnecting via ${endpoints[endpointIndex]} in ${delay}ms`);
+    try {
+      if (socket?.readyState === 0 || socket?.readyState === 1) socket.close();
+    } catch {
+      // The reconnect timer below is authoritative even if close is unavailable.
+    }
+    reconnectTimer = setTimeout(() => {
+      reconnectTimer = undefined;
+      connect();
+    }, delay);
+  };
 
   const connect = () => {
     if (stopped) return;
     state.status = "connecting";
-    socket = new WebSocketClient(url);
+    state.endpoint = endpoints[endpointIndex];
+    try {
+      socket = new WebSocketClient(state.endpoint);
+    } catch {
+      scheduleReconnect("connection failed");
+      return;
+    }
     socket.addEventListener("open", () => {
       attempts = 0;
       state.status = "connected";
@@ -149,22 +178,11 @@ function connectFeed({ name, url, subscribe, handleMessage, heartbeat }) {
       }
     });
     socket.addEventListener("error", () => {
-      state.status = "error";
-      try {
-        socket.close();
-      } catch {
-        // The close event schedules the reconnect when the runtime permits it.
-      }
+      scheduleReconnect("connection error");
     });
     socket.addEventListener("close", () => {
-      if (heartbeatTimer) clearInterval(heartbeatTimer);
-      state.status = stopped ? "stopped" : "reconnecting";
-      if (stopped) return;
-      attempts += 1;
-      state.reconnects += 1;
-      const delay = Math.min(30_000, 1_000 * 2 ** Math.min(attempts, 5));
-      console.warn(`[market-stream] ${name} disconnected; reconnecting in ${delay}ms`);
-      reconnectTimer = setTimeout(connect, delay);
+      if (stopped) state.status = "stopped";
+      else scheduleReconnect("disconnected");
     });
   };
 
@@ -181,7 +199,11 @@ function connectFeed({ name, url, subscribe, handleMessage, heartbeat }) {
 
 connectFeed({
   name: "Binance",
-  url: "wss://stream.binance.com:9443/ws/!miniTicker@arr",
+  urls: [
+    "wss://data-stream.binance.vision/ws/!miniTicker@arr",
+    "wss://stream.binance.com:443/ws/!miniTicker@arr",
+    "wss://stream.binance.com:9443/ws/!miniTicker@arr",
+  ],
   handleMessage(raw) {
     const rows = JSON.parse(raw);
     if (!Array.isArray(rows)) return;
