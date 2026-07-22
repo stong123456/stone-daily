@@ -38,6 +38,19 @@ Authorization: Bearer <CRON_SECRET>
 
 Set `NEXT_PUBLIC_MARKET_STREAM_URL` to the Railway public domain in the web deployment, then redeploy the website. This value is intentionally public; it contains no credential.
 
+### Railway web service
+
+The production portal runs as a second service in the same Railway project. Keep the market stream service on `/railway.json`; set the web service's Railway config file path to `/railway.web.json`. The web service uses `Dockerfile.web` and Next.js standalone output.
+
+The purchased portal domain is:
+
+```text
+stonedaliy.xyz
+www.stonedaliy.xyz
+```
+
+Add the custom domain to the web service, not to the market stream service. Copy the DNS records Railway provides into the domain registrar exactly; Railway requires its ownership verification record before routing requests.
+
 ## Railway stream deployment
 
 The WebSocket worker runs as one always-on Railway service. The checked-in `railway.json` selects `Dockerfile.stream`, configures `/health`, and restarts the service automatically.
