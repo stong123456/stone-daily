@@ -45,8 +45,8 @@ The production portal runs as a second service in the same Railway project. Keep
 The purchased portal domain is:
 
 ```text
-stonedaliy.xyz
-www.stonedaliy.xyz
+stonedaily.xyz
+www.stonedaily.xyz
 ```
 
 Add the custom domain to the web service, not to the market stream service. Copy the DNS records Railway provides into the domain registrar exactly; Railway requires its ownership verification record before routing requests.
