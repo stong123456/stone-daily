@@ -9,7 +9,11 @@ export function AIExplanationModal({ asset, explanation, open, onClose }: { asse
     <div className="modal-backdrop" onMouseDown={onClose} role="presentation">
       <section aria-label="AI 涨跌解释" aria-modal="true" className="analysis-modal" onMouseDown={(event) => event.stopPropagation()} role="dialog">
         <div className="analysis-modal__header">
-          <div><span className="analysis-modal__eyebrow">{asset?.symbol} · AI 解读</span><h2>{explanation?.title ?? "正在理解这次波动…"}</h2></div>
+          <div>
+            <span className="analysis-modal__eyebrow">{asset?.symbol} · AI 解读</span>
+            <h2>{explanation?.title ?? "正在理解这次波动…"}</h2>
+            {asset ? <div className="analysis-modal__context"><span>{asset.venue ?? "综合行情"}</span><span>{asset.productType === "tokenized-perpetual" ? "币股永续" : asset.productType === "tokenized-onchain" ? "链上币股" : asset.productType === "tokenized-spot" ? "币股现货" : "币圈现货"}</span>{asset.quoteCurrency ? <span>{asset.quoteCurrency} 计价</span> : null}</div> : null}
+          </div>
           <button aria-label="关闭" className="icon-button" onClick={onClose} type="button"><X size={20} /></button>
         </div>
         {explanation ? (

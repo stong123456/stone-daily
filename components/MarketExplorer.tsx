@@ -11,7 +11,7 @@ import { MarketTemperatureCard } from "@/components/MarketTemperatureCard";
 import { Watchlist } from "@/components/Watchlist";
 import { marketSnapshot } from "@/data/market";
 import { expandedCryptoData, expandedStockData, marketUniverse } from "@/data/expandedMarket";
-import { generateAssetExplanation } from "@/services/aiAnalysis";
+import { buildAssetCalmPrompt, generateAssetExplanation } from "@/services/aiAnalysis";
 import { fetchMarketFeed, type MarketFeedResult, type MarketProviderSummary } from "@/services/marketProviders";
 import { calculateMarketSpreads, mergeStreamQuotes } from "@/services/marketStream";
 import type { AIExplanation, MarketAsset, MarketSpread, StreamQuoteSnapshot, StreamingSummary } from "@/types/market";
@@ -212,7 +212,7 @@ export function MarketExplorer() {
   };
 
   const calm = (asset: MarketAsset) => {
-    const text = `我看到 ${asset.symbol} 今天波动了 ${Math.abs(asset.change24h).toFixed(2)}%，有点想追热点，帮我冷静一下。`;
+    const text = buildAssetCalmPrompt(asset);
     router.push(`/regret?text=${encodeURIComponent(text)}`);
   };
 
@@ -220,7 +220,7 @@ export function MarketExplorer() {
     <>
       <header className="page-header page-header--market">
         <div><span>Crypto + tokenized stocks</span><h1>币圈与币股行情</h1><p>搜索加密资产、币股现货、链上币股和币股永续，先分清产品结构，再看价格与风险。</p></div>
-        <div className="market-coverage"><Broadcast size={22} weight="duotone" /><div><strong>{cryptoFeed && stockFeed ? `${cryptoFeed.length} 个币圈 + ${stockFeed.length} 个币股行情` : "正在连接币圈与币股行情"}</strong><span>9 个币圈现货源 · 5 个币股产品源 · 单源故障隔离</span></div></div>
+        <div className="market-coverage"><Broadcast size={22} weight="duotone" /><div><strong>{cryptoFeed && stockFeed ? `${cryptoFeed.length} 个币圈 + ${stockFeed.length} 个币股行情` : "正在连接币圈与币股行情"}</strong><span>10 个币圈现货源 · 5 个币股产品源 · 单源故障隔离</span></div></div>
       </header>
 
       <section className="temperature-grid">
@@ -246,7 +246,15 @@ export function MarketExplorer() {
         <div className="market-sector-list" aria-label="资产赛道筛选">
           {sectors.map((item) => <button aria-pressed={sector === item} key={item} onClick={() => { setSector(item); setVisibleCount(pageSize); }} type="button">{item}</button>)}
         </div>
-        {tab !== "watchlist" && feedStatus.providers?.length ? <div className="market-provider-strip">{feedStatus.providers.map((provider) => <span data-status={provider.status} key={`${tab}-${provider.name}`}><strong>{provider.name}</strong><small>{provider.product} · {provider.count} 个 · {provider.status === "live" ? "在线" : provider.status === "cached" ? "缓存" : provider.status === "catalog" ? "目录" : "暂不可用"}{typeof provider.latencyMs === "number" ? ` · ${provider.latencyMs}ms` : ""}{provider.docsUrl ? <> · <a href={provider.docsUrl} rel="noreferrer" target="_blank">官方接口</a></> : null}</small></span>)}</div> : null}
+        {tab !== "watchlist" && feedStatus.providers?.length ? <div className="market-provider-strip" aria-label="交易所行情源，点击筛选">{feedStatus.providers.map((provider) => {
+          const isSelected = venue === provider.name;
+          const isUnavailable = provider.status === "unavailable" && provider.count === 0;
+          const statusLabel = provider.status === "live" ? "在线" : provider.status === "cached" ? "缓存" : provider.status === "catalog" ? "目录" : "暂不可用";
+          return <div className="market-provider-card" data-selected={isSelected} data-status={provider.status} key={`${tab}-${provider.name}`}>
+            <button aria-label={`${isSelected ? "取消" : "只看"} ${provider.name} ${provider.product}`} aria-pressed={isSelected} disabled={isUnavailable} onClick={() => { setVenue(isSelected ? "全部交易所" : provider.name); setVisibleCount(pageSize); }} type="button"><span><strong>{provider.name}</strong><small>{provider.product} · {provider.count} 个 · {statusLabel}{typeof provider.latencyMs === "number" ? ` · ${provider.latencyMs}ms` : ""}</small></span></button>
+            {provider.docsUrl ? <a aria-label={`${provider.name} 官方接口文档`} href={provider.docsUrl} rel="noreferrer" target="_blank">接口</a> : null}
+          </div>;
+        })}</div> : null}
         <div className="market-workspace__meta"><Brain size={17} /><p>{feedStatus.mode === "live" ? `${feedStatus.source}已连接，${directStreamConnected ? "币圈报价由 Railway 流网关直接推送" : feedStatus.streaming ? "币圈报价正在读取共享流快照" : "页面按快照刷新"}。各交易所价格保留为独立行；成交量仅用于单平台内比较，不做误导性的全网加总。币股现货、链上代币和永续合约也不会混成同一种产品。` : feedStatus.mode === "cached" ? `${feedStatus.source}。这是官方接口最近一次成功同步的快照，不冒充实时流；生产部署恢复直连后会自动切换为准实时。` : "当前使用本地演示目录；恢复后会自动重新连接交易所公开行情。"}</p><span className="feed-badge" data-mode={feedStatus.mode}>{feedStatus.mode === "loading" ? "连接中" : feedStatus.streaming ? `秒级流 · ${feedStatus.streaming.lagMs}ms` : feedStatus.mode === "live" ? "后台快照" : feedStatus.mode === "cached" ? "官方缓存" : "演示"}</span><strong>{filteredAssets.length} 个结果</strong></div>
         {tab === "crypto" ? <MarketIntelligencePanel spreads={feedStatus.spreads ?? []} streaming={feedStatus.streaming} /> : null}
         {tab === "watchlist" ? (

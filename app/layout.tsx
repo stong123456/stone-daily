@@ -6,6 +6,12 @@ import { AppStateProvider } from "@/components/AppStateProvider";
 export const metadata: Metadata = {
   title: "Stone Daily · 普通人也能看懂的 AI 行情站",
   description: "看币股、看币圈、看热点，也看自己有没有上头。",
+  applicationName: "Stone Daily",
+  openGraph: {
+    title: "Stone Daily",
+    description: "普通人也能看懂的 AI 美股与币圈行情站",
+    siteName: "Stone Daily",
+  },
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

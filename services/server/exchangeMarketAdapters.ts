@@ -92,6 +92,14 @@ type KrakenTicker = {
   v?: string[];
 };
 
+type HtxTicker = {
+  symbol: string;
+  open: number;
+  close: number;
+  vol: number;
+  amount: number;
+};
+
 type CoinbaseProduct = {
   product_id: string;
   price: string;
@@ -124,6 +132,7 @@ type BinanceStockDynamic = {
 };
 
 const STABLE_QUOTES = new Set(["USDT", "USDC", "USD", "USDG"]);
+const STABLE_QUOTES_BY_LENGTH = [...STABLE_QUOTES].sort((a, b) => b.length - a.length);
 const BLOCKED_SUFFIXES = ["UP", "DOWN", "BULL", "BEAR"];
 const BINANCE_FEATURED_TICKERS = ["AAPL", "NVDA", "TSLA", "MSFT", "AMZN", "META", "GOOGL", "QQQ"];
 
@@ -154,6 +163,26 @@ function normalizedPair(value: string) {
 
 function tokenName(ticker: string) {
   return `${STOCK_NAMES[ticker] ?? ticker} 币股`;
+}
+
+function krakenXStockUnderlying(key: string, pair: KrakenPair) {
+  if (pair.aclass_base === "tokenized_asset") return pair.base.replace(/x$/i, "").toUpperCase();
+
+  const quoteSymbols = [pair.quote, "USDT", "USDC", "USD", "EUR", "GBP"]
+    .filter(Boolean)
+    .sort((a, b) => b.length - a.length);
+  const candidates = [pair.base, pair.altname, pair.wsname?.split("/")[0], key];
+
+  for (const rawCandidate of candidates) {
+    if (!rawCandidate) continue;
+    let candidate = rawCandidate.split(/[\/_-]/)[0];
+    const quote = quoteSymbols.find((item) => candidate.endsWith(item));
+    if (quote) candidate = candidate.slice(0, -quote.length);
+    const match = candidate.match(/^([A-Z0-9.]{1,16})x$/);
+    if (match) return match[1].toUpperCase();
+  }
+
+  return null;
 }
 
 async function fetchJson<T>(url: string, revalidate = 8, headers?: HeadersInit): Promise<T> {
@@ -313,6 +342,32 @@ async function fetchKrakenCrypto(): Promise<ProviderResult> {
   return { assets, count: assets.length };
 }
 
+async function fetchHtxCrypto(): Promise<ProviderResult> {
+  const payload = await Promise.any([
+    fetchJson<{ status?: string; data?: HtxTicker[] }>("https://api.huobi.pro/market/tickers", 5),
+    fetchJson<{ status?: string; data?: HtxTicker[] }>("https://api-aws.huobi.pro/market/tickers", 5),
+  ]);
+  if (payload.status && payload.status !== "ok") throw new Error("HTX market data unavailable");
+  const assets = (payload.data ?? []).flatMap((ticker): MarketAsset[] => {
+    const pair = ticker.symbol.toUpperCase();
+    const quote = STABLE_QUOTES_BY_LENGTH.find((item) => pair.endsWith(item));
+    if (!quote) return [];
+    const symbol = pair.slice(0, -quote.length);
+    const price = numberOrZero(ticker.close);
+    if (!symbol || !price || BLOCKED_SUFFIXES.some((suffix) => symbol.endsWith(suffix))) return [];
+    const open = numberOrZero(ticker.open);
+    return [cryptoAsset({
+      venue: "HTX",
+      symbol,
+      quote,
+      price,
+      change24h: open ? ((price - open) / open) * 100 : 0,
+      volume: numberOrZero(ticker.vol) || numberOrZero(ticker.amount) * price,
+    })];
+  });
+  return { assets, count: assets.length };
+}
+
 async function fetchKucoinCrypto(): Promise<ProviderResult> {
   const payload = await fetchJson<{ code?: string; data?: { ticker?: Array<{ symbol: string; last: string; changeRate: string; volValue: string }> } }>("https://api.kucoin.com/api/v1/market/allTickers", 5);
   if (payload.code && payload.code !== "200000") throw new Error("KuCoin market data unavailable");
@@ -353,7 +408,7 @@ async function fetchGateCrypto(): Promise<ProviderResult> {
 async function fetchMexcCrypto(): Promise<ProviderResult> {
   const payload = await fetchJson<Array<{ symbol: string; lastPrice: string; priceChangePercent: string; quoteVolume?: string; volume?: string }>>("https://api.mexc.com/api/v3/ticker/24hr", 5);
   const assets = payload.flatMap((ticker): MarketAsset[] => {
-    const quote = [...STABLE_QUOTES].sort((a, b) => b.length - a.length).find((item) => ticker.symbol.endsWith(item));
+    const quote = STABLE_QUOTES_BY_LENGTH.find((item) => ticker.symbol.endsWith(item));
     if (!quote) return [];
     const symbol = ticker.symbol.slice(0, -quote.length);
     const price = numberOrZero(ticker.lastPrice);
@@ -500,18 +555,19 @@ async function fetchBybitStockTokens(): Promise<ProviderResult> {
 
 async function fetchKrakenStockTokens(): Promise<ProviderResult> {
   const [pairsPayload, tickersPayload] = await Promise.all([
-    fetchJson<{ error?: string[]; result?: Record<string, KrakenPair> }>("https://api.kraken.com/0/public/AssetPairs?assetVersion=1&aclass_base=tokenized_asset", 30),
+    fetchJson<{ error?: string[]; result?: Record<string, KrakenPair> }>("https://api.kraken.com/0/public/AssetPairs?assetVersion=1", 30),
     fetchJson<{ error?: string[]; result?: Record<string, KrakenTicker> }>("https://api.kraken.com/0/public/Ticker?assetVersion=1", 5),
   ]);
   if (pairsPayload.error?.length || tickersPayload.error?.length) throw new Error("Kraken xStocks data unavailable");
   const tickerMap = new Map(Object.entries(tickersPayload.result ?? {}).map(([key, ticker]) => [normalizedPair(key), ticker]));
   const assets = Object.entries(pairsPayload.result ?? {}).flatMap(([key, pair]): MarketAsset[] => {
-    if (pair.aclass_base !== "tokenized_asset" || (pair.status && pair.status !== "online")) return [];
+    const underlying = krakenXStockUnderlying(key, pair);
+    if (!underlying || (pair.status && pair.status !== "online")) return [];
     const ticker = [key, pair.altname ?? "", pair.wsname ?? ""].map(normalizedPair).map((candidate) => tickerMap.get(candidate)).find(Boolean);
     const price = numberOrZero(ticker?.c?.[0]);
     if (!ticker || !price) return [];
     const open = numberOrZero(ticker.o);
-    const underlying = pair.base.replace(/x$/i, "").toUpperCase();
+    const quote = pair.quote.replace(/^Z(?=USD$)/, "");
     return [{
       id: `kraken-${normalizedPair(key).toLowerCase()}`,
       name: tokenName(underlying),
@@ -520,7 +576,7 @@ async function fetchKrakenStockTokens(): Promise<ProviderResult> {
       change24h: open ? ((price - open) / open) * 100 : 0,
       volume: numberOrZero(ticker.v?.[1]) * price,
       marketCap: 0,
-      narrative: `Kraken xStocks · ${pair.quote} 现货`,
+      narrative: `Kraken xStocks · ${quote} 现货`,
       aiTag: "1:1 支持资产",
       aiHint: "Kraken 表述为由基础资产 1:1 支持的 xStocks；持有者不因此获得传统股东投票权，且地区可用性受限。",
       volumeChange: 0,
@@ -528,7 +584,7 @@ async function fetchKrakenStockTokens(): Promise<ProviderResult> {
       venue: "Kraken",
       sector: "币股现货",
       productType: "tokenized-spot",
-      quoteCurrency: pair.quote,
+      quoteCurrency: quote,
       underlying,
     }];
   });
@@ -581,6 +637,7 @@ export const cryptoProviderAdapters: MarketProviderAdapter[] = [
   { name: "OKX", product: "币圈现货", docsUrl: "https://www.okx.com/docs-v5/en/#order-book-trading-market-data-get-tickers", load: fetchOkxCrypto },
   { name: "Bitget", product: "币圈现货", docsUrl: "https://www.bitget.com/api-doc/spot/market/Get-Tickers", load: fetchBitgetCrypto },
   { name: "Bybit", product: "币圈现货", docsUrl: "https://bybit-exchange.github.io/docs/v5/market/tickers", load: fetchBybitCrypto },
+  { name: "HTX", product: "币圈现货", docsUrl: "https://huobiapi.github.io/docs/spot/v1/en/#get-latest-tickers-for-all-pairs", load: fetchHtxCrypto },
   { name: "Kraken", product: "币圈现货", docsUrl: "https://docs.kraken.com/api-reference/market-data/get-ticker-information", load: fetchKrakenCrypto },
   { name: "KuCoin", product: "币圈现货", docsUrl: "https://www.kucoin.com/docs-new/rest/spot-trading/market-data/get-all-tickers", load: fetchKucoinCrypto },
   { name: "Gate", product: "币圈现货", docsUrl: "https://www.gate.com/docs/developers/apiv4/en/#retrieve-ticker-information", load: fetchGateCrypto },

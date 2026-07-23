@@ -21,6 +21,7 @@ import { AssetRow } from "@/components/AssetRow";
 import { FeatureCard } from "@/components/FeatureCard";
 import { MarketTemperatureCard } from "@/components/MarketTemperatureCard";
 import { allAssets, cryptoData, marketSnapshot, stockData } from "@/data/market";
+import { buildAssetCalmPrompt } from "@/services/aiAnalysis";
 import { fetchMarketFeed } from "@/services/marketProviders";
 import type { MarketAsset } from "@/types/market";
 
@@ -56,7 +57,7 @@ function BriefDashboard({ previewAssets, feedLabel }: { previewAssets: MarketAss
         <div className="market-preview">
           <div className="section-heading"><div><span>市场速览 · {feedLabel}</span><h2>AI 一句话状态</h2></div><Link href="/markets">查看全部资产 <ArrowRight size={16} /></Link></div>
           <div className="market-preview__rows">
-            {previewAssets.map((asset) => <AssetRow asset={asset} compact isWatched={watchlistIds.includes(asset.id)} key={asset.id} onCalm={() => { window.location.href = `/regret?text=${encodeURIComponent(`我看到 ${asset.symbol} 今天波动了 ${asset.change24h}%，想先冷静一下。`)}`; }} onExplain={() => { window.location.href = "/markets"; }} onToggleWatchlist={toggleWatchlist} />)}
+            {previewAssets.map((asset) => <AssetRow asset={asset} compact isWatched={watchlistIds.includes(asset.id)} key={asset.id} onCalm={() => { window.location.href = `/regret?text=${encodeURIComponent(buildAssetCalmPrompt(asset))}`; }} onExplain={() => { window.location.href = "/markets"; }} onToggleWatchlist={toggleWatchlist} />)}
           </div>
         </div>
       </div>

@@ -8,10 +8,10 @@ import {
   CalendarDots,
   List,
   Newspaper,
-  Stack,
   Timer,
   X,
 } from "@phosphor-icons/react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
@@ -35,8 +35,8 @@ export function Navbar() {
     <>
       <header className="navbar">
         <Link aria-label="Stone Daily 首页" className="brand" href="/" onClick={() => setOpen(false)}>
-          <span className="brand__mark"><Stack aria-hidden size={22} weight="fill" /></span>
-          <span>Stone Daily</span>
+          <span className="brand__mark"><Image alt="" aria-hidden height={48} priority src="/assets/stone-daily-mark.png" width={48} /></span>
+          <span className="brand__wordmark"><span>Stone</span> <span>Daily</span></span>
         </Link>
         <nav aria-label="主导航" className="navbar__links">
           {navItems.map(({ href, label }) => (
@@ -59,8 +59,8 @@ export function Navbar() {
 
       <aside className="sidebar-nav" aria-label="侧边导航">
         <Link aria-label="Stone Daily 首页" className="brand" href="/">
-          <span className="brand__mark"><Stack aria-hidden size={22} weight="fill" /></span>
-          <span>Stone Daily</span>
+          <span className="brand__mark"><Image alt="" aria-hidden height={48} src="/assets/stone-daily-mark.png" width={48} /></span>
+          <span className="brand__wordmark"><span>Stone</span> <span>Daily</span></span>
         </Link>
         <nav className="sidebar-nav__links">
           {navItems.map(({ href, label, Icon }) => (
