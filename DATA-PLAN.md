@@ -71,10 +71,18 @@ Exchange volume fields do not always share the same unit or definition. Stone Da
 
 ### Daily hotspots
 
-- Inputs: official exchange notices, token issuers, attestation reports, regulators, licensed financial news, price/volume anomalies and public social signals.
+- Live inputs: Sina Finance 7×24, Federal Reserve, ECB, Bank of Japan, SEC, Cointelegraph, Decrypt and Kraken Blog. Sources run concurrently with independent timeouts and visible health states.
+- Editorial inputs: official exchange notices, token issuers, attestation reports, regulators, licensed financial news, price/volume anomalies and public social signals.
 - Ranking: market impact, source quality, cross-source agreement, freshness and relevance to ordinary users.
 - Output: facts, why it matters, what remains uncertain, related products and original source links.
 - Sharing: public X share intent by default. Automated posting requires server-side OAuth and explicit authorization.
+
+### Economic calendar
+
+- The table follows the familiar time / region / event / importance / actual / forecast / previous structure and always displays Beijing time.
+- Official baseline sources are BLS, the Federal Reserve, the ECB and BEA. BLS ICS is fetched at runtime when available; reviewed official dates remain as a transparent catalogue fallback.
+- `TRADING_ECONOMICS_API_KEY` is optional. When configured it expands global coverage and fills actual, consensus forecast and previous values. The discontinued guest account is never presented as a working source.
+- Calendar provider health and fallback mode stay visible. Source links point to the original publisher instead of treating an automated summary as evidence.
 
 ### History on this day
 

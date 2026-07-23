@@ -13,6 +13,9 @@ When implementing from a selected generated mock, treat that image as the source
 - All modes must expose the same routes and core interactions; only information framing, navigation layout, density, and visual tokens may differ.
 - Stone Daily is a public portal for ordinary users, not a personalized publishing dashboard. Daily hotspots, sharing tools, and market discovery must be useful without a personal account.
 - Public editorial modules must separate facts, inference, and risk; retain visible source links; and never turn popularity into a trading recommendation.
+- The header carries a second-by-second Beijing date/time strip and a prominent `X：石头 @Stone141319` button; do not replace it with a build-time or hard-coded date.
+- Daily hotspots combine a reviewed editorial layer with a separate 7×24 feed. Aggregate Sina Finance, central banks, regulators, crypto media and exchange sources independently, expose per-source health, and keep raw source links.
+- The economic calendar uses Beijing time and preserves time, region, event, importance, actual, forecast and previous fields. Prefer official BLS/Fed/ECB/BEA schedules, label catalogue fallback clearly, and use Trading Economics only when a real server-side key is configured.
 - “美股” in this product means crypto-native tokenized-stock products (币股), not direct NYSE/Nasdaq shares. Aggregate Binance Web3/Ondo, Bitget rToken, OKX stock-token derivatives, and other exchange sources while keeping venue, product type, rights, trading hours, and feed delay explicit.
 - Keep all approved product layers: crypto spot, tokenized-stock spot, on-chain tokenized stocks, and tokenized-stock perpetuals. Bybit xStocks and Kraken xStocks are first-class sources alongside Bitget, OKX, and Binance Web3.
 - The public market portal should aggregate mainstream exchanges with independent timeouts and visible provider health; never hide a partial outage or sum incompatible volume fields into a fake global metric.

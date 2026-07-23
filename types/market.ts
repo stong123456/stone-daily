@@ -105,6 +105,68 @@ export interface DailyHotspot {
   publishedAt: string;
 }
 
+export type EditorialFeedCategory = HotspotCategory | "全球";
+
+export interface EditorialFeedItem {
+  id: string;
+  source: string;
+  sourceType: "官方" | "交易所" | "媒体";
+  category: EditorialFeedCategory;
+  title: string;
+  summary: string;
+  url: string;
+  publishedAt: string;
+  relatedAssets: string[];
+  urgency: "快讯" | "重要" | "常规";
+}
+
+export interface EditorialSourceHealth {
+  name: string;
+  type: "官方" | "交易所" | "媒体";
+  status: "live" | "unavailable";
+  itemCount: number;
+  url: string;
+}
+
+export interface EditorialFeedSnapshot {
+  items: EditorialFeedItem[];
+  providers: EditorialSourceHealth[];
+  updatedAt: string;
+  mode: "live" | "partial" | "fallback";
+}
+
+export type EconomicEventImportance = 1 | 2 | 3;
+
+export interface EconomicEvent {
+  id: string;
+  scheduledAt: string;
+  countryCode: string;
+  countryName: string;
+  currency: string;
+  event: string;
+  importance: EconomicEventImportance;
+  actual?: string;
+  forecast?: string;
+  previous?: string;
+  sourceName: string;
+  sourceUrl: string;
+  status: "scheduled" | "released" | "tentative";
+}
+
+export interface EconomicCalendarProvider {
+  name: string;
+  status: "live" | "catalog" | "unavailable";
+  eventCount: number;
+  url: string;
+}
+
+export interface EconomicCalendarSnapshot {
+  events: EconomicEvent[];
+  providers: EconomicCalendarProvider[];
+  updatedAt: string;
+  mode: "live" | "partial" | "fallback";
+}
+
 export interface HistoryEvent {
   id: string;
   year: number;

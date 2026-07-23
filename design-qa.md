@@ -82,3 +82,12 @@ Final result: PASSED for the implemented UI and interactions. External-provider 
 - Railway served the new `stone-daily-mark.png` asset with HTTP 200 and the expected 346,479-byte payload.
 - HTX public spot aggregation is live in production: 605 markets, 203 ms in the verification snapshot.
 - Kraken xStocks returned zero public order-book markets from the current Railway region even though the endpoint responded in 277 ms. This is consistent with Kraken's geographic/API availability restrictions, not a missing API key. The UI now labels this state `地区/API 受限` instead of implying an unknown outage.
+
+## 2026-07-23 live header, editorial feed, and calendar QA
+
+- The global utility bar now renders a client-side Asia/Shanghai clock and refreshes its date and `HH:mm:ss` value every second.
+- The creator attribution is promoted above the main navigation as a high-contrast X button and remains compact but visible on mobile.
+- `/api/editorial` aggregates Sina Finance 7x24, central-bank, regulator, crypto-news, and exchange sources independently so one failed source does not blank the feed.
+- `/api/economic-calendar` supports live providers when available and a reviewed official-event fallback, with timezone-normalized range, region, and importance filters in `/calendar`.
+- `npm run typecheck` passed. The production rebuild was blocked by the current execution quota after the previously successful Next.js 15.5.20 build; no type or whitespace errors remain.
+- Browser inspection of localhost, Railway, and the production domain was denied by the active browser security policy, so this iteration does not claim a fresh screenshot comparison.

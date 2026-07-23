@@ -5,21 +5,25 @@ import {
   ChartLineUp,
   CloudSun,
   FirstAid,
+  CalendarCheck,
   CalendarDots,
   List,
   Newspaper,
   Timer,
   X,
+  XLogo,
 } from "@phosphor-icons/react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import { LiveClock } from "@/components/LiveClock";
 import { ThemeSwitcher } from "@/components/ThemeSwitcher";
 
 const navItems = [
   { href: "/markets", label: "实时行情", Icon: ChartLineUp },
   { href: "/hotspots", label: "每日热点", Icon: Newspaper },
+  { href: "/calendar", label: "财经日历", Icon: CalendarCheck },
   { href: "/today", label: "历史上的今天", Icon: CalendarDots },
   { href: "/weather", label: "市场天气", Icon: CloudSun },
   { href: "/detox", label: "热点拆弹器", Icon: Bomb },
@@ -33,6 +37,16 @@ export function Navbar() {
 
   return (
     <>
+      <div className="top-utility-shell">
+        <div className="top-utility-bar">
+          <LiveClock />
+          <a aria-label="在 X 上访问石头 @Stone141319" className="creator-link creator-link--header" href="https://x.com/Stone141319" rel="noreferrer" target="_blank">
+            <XLogo aria-hidden size={14} weight="fill" />
+            <span>X：石头</span>
+            <small>@Stone141319</small>
+          </a>
+        </div>
+      </div>
       <header className="navbar">
         <Link aria-label="Stone Daily 首页" className="brand" href="/" onClick={() => setOpen(false)}>
           <span className="brand__mark"><Image alt="" aria-hidden height={48} priority src="/assets/stone-daily-mark.png" width={48} /></span>

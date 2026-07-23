@@ -3,6 +3,7 @@
 import {
   ArrowRight,
   Brain,
+  CalendarCheck,
   CalendarDots,
   ChartLineUp,
   CheckCircle,
@@ -38,7 +39,7 @@ function Hero() {
         <Link className="button button--secondary" href="/weather"><CloudSun size={19} />今日市场天气</Link>
         <Link className="button button--soft" href="/regret"><FirstAid size={19} />帮我冷静一下</Link>
       </div>
-      <div className="home-hero__meta"><span>2026 年 7 月 21 日</span><span>行情源状态以页面标识为准</span></div>
+      <div className="home-hero__meta"><span>北京时间实时更新</span><span>行情源状态以页面标识为准</span></div>
     </section>
   );
 }
@@ -153,6 +154,7 @@ export function HomeDashboard() {
       {mode === "brief" ? <BriefDashboard feedLabel={feedLabel} previewAssets={previewAssets} /> : mode === "lens" ? <LensDashboard previewAssets={previewAssets} /> : <CalmDashboard cryptoAssets={cryptoAssets} stockAssets={stockAssets} />}
       <section className="daily-entry-grid" aria-label="每日内容入口">
         <Link className="daily-entry-card daily-entry-card--hot" href="/hotspots"><span><Newspaper size={24} weight="duotone" /></span><div><small>Daily pulse</small><h2>每日热点</h2><p>三分钟看懂今天真正影响币股、币圈和市场情绪的主线。</p></div><ArrowRight size={18} /></Link>
+        <Link className="daily-entry-card" href="/calendar"><span><CalendarCheck size={24} weight="duotone" /></span><div><small>Macro schedule</small><h2>财经日历</h2><p>按北京时间查看央行决议、通胀、就业和增长数据等高影响事件。</p></div><ArrowRight size={18} /></Link>
         <Link className="daily-entry-card" href="/today"><span><CalendarDots size={24} weight="duotone" /></span><div><small>Market memory</small><h2>历史上的今天</h2><p>从过去的制度、危机和周期里，找到理解今天的参照物。</p></div><ArrowRight size={18} /></Link>
       </section>
       <section className="home-section"><div className="section-intro"><span>三件事，足够了</span><h2>看懂行情，拆掉噪音，拦住冲动</h2><p>Stone Daily 不试图替你决定，只把信息变得更清楚，把情绪变得更可见。</p></div><div className="feature-grid"><FeatureCard Icon={ChartLineUp} number="01" title="全市场行情搜索">覆盖币圈与币股目录，并明确区分现货、链上代币和永续合约。</FeatureCard><FeatureCard Icon={Brain} number="02" title="AI 涨跌解释">不只告诉你动了多少，还用人话解释可能原因和常见误区。</FeatureCard><FeatureCard Icon={FirstAid} number="03" title="后悔药按钮">做决定之前，让未来的自己回来提醒现在的自己。</FeatureCard></div></section>
