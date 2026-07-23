@@ -77,6 +77,8 @@ Final result: PASSED for the implemented UI and interactions. External-provider 
 - `npm run build`: passed on Next.js 15.5.20.
 - `git diff --check`: passed; only line-ending notices were emitted.
 
-## Deployment follow-up
+## Deployment result
 
-- Kraken xStocks and HTX were both correctly represented in provider controls but their public endpoints timed out locally. Confirm their provider counts again from the Railway deployment after push; no API key is required for either public market-data path.
+- Railway served the new `stone-daily-mark.png` asset with HTTP 200 and the expected 346,479-byte payload.
+- HTX public spot aggregation is live in production: 605 markets, 203 ms in the verification snapshot.
+- Kraken xStocks returned zero public order-book markets from the current Railway region even though the endpoint responded in 277 ms. This is consistent with Kraken's geographic/API availability restrictions, not a missing API key. The UI now labels this state `地区/API 受限` instead of implying an unknown outage.

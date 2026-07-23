@@ -249,7 +249,7 @@ export function MarketExplorer() {
         {tab !== "watchlist" && feedStatus.providers?.length ? <div className="market-provider-strip" aria-label="交易所行情源，点击筛选">{feedStatus.providers.map((provider) => {
           const isSelected = venue === provider.name;
           const isUnavailable = provider.status === "unavailable" && provider.count === 0;
-          const statusLabel = provider.status === "live" ? "在线" : provider.status === "cached" ? "缓存" : provider.status === "catalog" ? "目录" : "暂不可用";
+          const statusLabel = provider.status === "live" ? "在线" : provider.status === "cached" ? "缓存" : provider.status === "catalog" ? "目录" : provider.name === "Kraken" && tab === "stocks" ? "地区/API 受限" : "暂不可用";
           return <div className="market-provider-card" data-selected={isSelected} data-status={provider.status} key={`${tab}-${provider.name}`}>
             <button aria-label={`${isSelected ? "取消" : "只看"} ${provider.name} ${provider.product}`} aria-pressed={isSelected} disabled={isUnavailable} onClick={() => { setVenue(isSelected ? "全部交易所" : provider.name); setVisibleCount(pageSize); }} type="button"><span><strong>{provider.name}</strong><small>{provider.product} · {provider.count} 个 · {statusLabel}{typeof provider.latencyMs === "number" ? ` · ${provider.latencyMs}ms` : ""}</small></span></button>
             {provider.docsUrl ? <a aria-label={`${provider.name} 官方接口文档`} href={provider.docsUrl} rel="noreferrer" target="_blank">接口</a> : null}
