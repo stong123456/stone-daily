@@ -2,6 +2,7 @@
 
 import {
   Bomb,
+  BookOpenText,
   Broadcast,
   ChartLineUp,
   CloudSun,
@@ -31,6 +32,7 @@ const navItems = [
   { href: "/detox", label: "热点拆弹器", Icon: Bomb },
   { href: "/regret", label: "后悔药按钮", Icon: FirstAid },
   { href: "/history", label: "我的记录", Icon: Timer },
+  { href: "/docs", label: "产品文档", Icon: BookOpenText },
 ];
 
 export function Navbar() {
