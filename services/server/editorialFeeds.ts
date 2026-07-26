@@ -221,19 +221,18 @@ function parseSina(source: SourceDefinition, html: string) {
 }
 
 function parseSec(source: SourceDefinition, html: string) {
-  const links = [
-    ...html.matchAll(
-      /<a[^>]+href=["']([^"']*\/newsroom\/press-releases\/[^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi,
-    ),
-  ];
+  const rows = html.match(/<tr[^>]*class=["'][^"']*pr-list-page-row[^"']*["'][^>]*>[\s\S]*?<\/tr>/gi) ?? [];
   const seen = new Set<string>();
-  return links.slice(0, 24).flatMap((match) => {
-    const rawUrl = decodeEntities(match[1]);
+  return rows.slice(0, 24).flatMap((row) => {
+    const link = row.match(/<a[^>]+href=["']([^"']*\/newsroom\/press-releases\/[^"']+)["'][^>]*>([\s\S]*?)<\/a>/i);
+    if (!link) return [];
+    const rawUrl = decodeEntities(link[1]);
     const url = rawUrl.startsWith("http") ? rawUrl : `https://www.sec.gov${rawUrl}`;
     if (seen.has(url)) return [];
     seen.add(url);
-    const title = plainText(match[2]);
-    const item = makeItem(source, title, title, url, new Date().toISOString());
+    const title = plainText(link[2]);
+    const publishedAt = row.match(/<time[^>]+datetime=["']([^"']+)["']/i)?.[1] ?? "";
+    const item = makeItem(source, title, title, url, publishedAt);
     return item ? [item] : [];
   });
 }

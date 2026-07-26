@@ -179,6 +179,21 @@ export interface HistoryEvent {
   sourceUrl: string;
 }
 
+export interface HistoryTodayProvider {
+  name: string;
+  status: "live" | "fallback" | "unavailable";
+  url: string;
+}
+
+export interface HistoryTodaySnapshot {
+  dateKey: string;
+  month: number;
+  day: number;
+  events: HistoryEvent[];
+  provider: HistoryTodayProvider;
+  updatedAt: string;
+}
+
 export interface MarketSnapshot {
   stockTemperature: number;
   cryptoTemperature: number;

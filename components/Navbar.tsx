@@ -2,6 +2,7 @@
 
 import {
   Bomb,
+  Broadcast,
   ChartLineUp,
   CloudSun,
   FirstAid,
@@ -23,6 +24,7 @@ import { ThemeSwitcher } from "@/components/ThemeSwitcher";
 const navItems = [
   { href: "/markets", label: "实时行情", Icon: ChartLineUp },
   { href: "/hotspots", label: "每日热点", Icon: Newspaper },
+  { href: "/live", label: "7×24", Icon: Broadcast },
   { href: "/calendar", label: "财经日历", Icon: CalendarCheck },
   { href: "/today", label: "历史上的今天", Icon: CalendarDots },
   { href: "/weather", label: "市场天气", Icon: CloudSun },

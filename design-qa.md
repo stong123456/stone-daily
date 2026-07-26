@@ -91,3 +91,12 @@ Final result: PASSED for the implemented UI and interactions. External-provider 
 - `/api/economic-calendar` supports live providers when available and a reviewed official-event fallback, with timezone-normalized range, region, and importance filters in `/calendar`.
 - `npm run typecheck` passed. The production rebuild was blocked by the current execution quota after the previously successful Next.js 15.5.20 build; no type or whitespace errors remain.
 - Browser inspection of localhost, Railway, and the production domain was denied by the active browser security policy, so this iteration does not claim a fresh screenshot comparison.
+
+## 2026-07-26 dynamic daily content and 7x24 portal QA
+
+- `/hotspots` now rebuilds its ranked cards from the current editorial snapshot on Beijing time. The browser check showed a live July 26 ranking from 42 candidates, kept source links attached to the matching headline, and excluded stale SEC announcements from the ranked cards.
+- `/today` now resolves the current Beijing month/day and merges traceable Chinese history sources. The browser check showed `7 月 26 日`, four fetched historical nodes, direct archive links, and a visible provider label.
+- `/live` is a dedicated paginated market-wire page with 10 items per page, category and source filtering, provider health, manual refresh, and a two-minute background refresh interval.
+- Desktop QA used 1265 x 720 CSS pixels. Mobile QA used 390 x 844 CSS pixels; the live page stayed within the viewport and produced no console messages.
+- Visual evidence: accepted hotspot reference `audit/2026-07-21/04-hotspots.png`; final desktop hotspot capture `C:\Users\Administrator\AppData\Local\Temp\stone-daily-hotspots-final.png`; final mobile live capture `C:\Users\Administrator\AppData\Local\Temp\stone-daily-live-mobile-final.png`.
+- `npm run typecheck`, `npm run build`, and `git diff --check` passed for this iteration.
