@@ -100,3 +100,13 @@ Final result: PASSED for the implemented UI and interactions. External-provider 
 - Desktop QA used 1265 x 720 CSS pixels. Mobile QA used 390 x 844 CSS pixels; the live page stayed within the viewport and produced no console messages.
 - Visual evidence: accepted hotspot reference `audit/2026-07-21/04-hotspots.png`; final desktop hotspot capture `C:\Users\Administrator\AppData\Local\Temp\stone-daily-hotspots-final.png`; final mobile live capture `C:\Users\Administrator\AppData\Local\Temp\stone-daily-live-mobile-final.png`.
 - `npm run typecheck`, `npm run build`, and `git diff --check` passed for this iteration.
+
+## 2026-07-26 live market weather, logos, and moving tapes QA
+
+- `/weather` now calculates live breadth, crypto and tokenized-stock temperatures, FOMO, volatility, source health, leaders, and risk copy from the current market feeds. The same calculation drives the homepage weather card and market-page temperature cards.
+- `/markets` defaults to 24-hour gain sorting and adds a canonical-symbol Top 20 tape. Leveraged-token wrappers remain searchable in the table but are excluded from the Top 20 and weather calculation so they cannot distort the market mood.
+- Crypto rows load symbol-specific marks with layered image fallbacks; tokenized stocks resolve logos from the underlying ticker. All currently configured exchange cards render recognizable venue marks, including HTX and MEXC image fallbacks.
+- `/live` adds a moving latest-news tape while retaining source/category filters and 10-item pagination.
+- Browser QA used 1280 x 720 desktop and 390 x 844 mobile viewports. `/weather`, `/markets`, `/live`, and the homepage had no horizontal overflow and no relevant console errors.
+- Visual evidence: existing system references `audit/2026-07-21/01-home.png` and `audit/2026-07-21/02-markets.png`; final captures `C:\Users\Administrator\AppData\Local\Temp\stone-daily-weather-desktop-final.png`, `C:\Users\Administrator\AppData\Local\Temp\stone-daily-weather-mobile-final.png`, and `C:\Users\Administrator\AppData\Local\Temp\stone-daily-markets-mobile-final.png`.
+- `npm run typecheck`, the Next.js 15.5.20 production build, and `git diff --check` passed.

@@ -1,6 +1,7 @@
 "use client";
 
 import { Brain, FirstAid, Star } from "@phosphor-icons/react";
+import { AssetLogo } from "@/components/AssetLogo";
 import { formatCompact, formatPercent, formatPrice } from "@/services/format";
 import type { MarketAsset } from "@/types/market";
 
@@ -24,7 +25,7 @@ export function AssetRow({
   return (
     <div className={`asset-row ${compact ? "asset-row--compact" : ""}`} role="row">
       <div className="asset-cell asset-cell--name" role="cell">
-        <span className={`asset-avatar asset-avatar--${asset.market}`}>{asset.symbol.slice(0, 1)}</span>
+        <AssetLogo asset={asset} />
         <span><strong>{asset.symbol}</strong><small>{asset.name}</small></span>
       </div>
       <div className="asset-cell asset-cell--price" role="cell"><strong>{formatPrice(asset.price)}</strong><small>{asset.narrative}</small></div>

@@ -18,15 +18,18 @@ import {
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useAppState } from "@/components/AppStateProvider";
+import { AssetLogo } from "@/components/AssetLogo";
 import { AssetRow } from "@/components/AssetRow";
 import { FeatureCard } from "@/components/FeatureCard";
 import { MarketTemperatureCard } from "@/components/MarketTemperatureCard";
-import { allAssets, cryptoData, marketSnapshot, stockData } from "@/data/market";
+import { allAssets, cryptoData, stockData } from "@/data/market";
 import { buildAssetCalmPrompt } from "@/services/aiAnalysis";
 import { fetchMarketFeed } from "@/services/marketProviders";
+import { buildMarketWeather, type LiveMarketWeather } from "@/services/marketWeather";
 import type { MarketAsset } from "@/types/market";
 
 const fallbackPreviewAssets = [cryptoData[0], cryptoData[1], stockData[2], stockData[1]];
+const fallbackWeather = buildMarketWeather({ cryptoAssets: cryptoData, stockAssets: stockData, cryptoMode: "fallback", stockMode: "fallback" });
 
 function Hero() {
   return (
@@ -44,16 +47,16 @@ function Hero() {
   );
 }
 
-function BriefDashboard({ previewAssets, feedLabel }: { previewAssets: MarketAsset[]; feedLabel: string }) {
+function BriefDashboard({ previewAssets, feedLabel, weather }: { previewAssets: MarketAsset[]; feedLabel: string; weather: LiveMarketWeather }) {
   const { watchlistIds, toggleWatchlist } = useAppState();
   return (
     <section className="brief-dashboard" aria-label="今日市场总览">
       <div className="brief-dashboard__main">
         <article className="weather-brief">
-          <img alt="多云偏暖" src="/assets/market-weather.png" />
-          <div className="weather-brief__copy"><span>今日市场天气</span><h2>{marketSnapshot.weather}</h2><p>{marketSnapshot.headline}</p></div>
-          <div className="weather-brief__score"><strong>58</strong><span>/100</span><small>中性偏乐观</small></div>
-          <div className="weather-brief__stats"><span><small>币股温度</small><strong>62 · 偏热</strong></span><span><small>币圈温度</small><strong>58 · 正常偏热</strong></span><span><small>FOMO 指数</small><strong>34 · 平静</strong></span></div>
+          <img alt={weather.weather} src="/assets/market-weather.png" />
+          <div className="weather-brief__copy"><span>实时市场天气</span><h2>{weather.weather}</h2><p>{weather.headline}</p></div>
+          <div className="weather-brief__score"><strong>{weather.score}</strong><span>/100</span><small>{weather.mode === "live" ? "实时综合温度" : "行情参考"}</small></div>
+          <div className="weather-brief__stats"><span><small>币股温度</small><strong>{weather.stockTemperature} · 广度 {weather.stockBreadth}%</strong></span><span><small>币圈温度</small><strong>{weather.cryptoTemperature} · 广度 {weather.cryptoBreadth}%</strong></span><span><small>FOMO 指数</small><strong>{weather.fomoIndex} · 振幅 {weather.volatility}%</strong></span></div>
         </article>
         <div className="market-preview">
           <div className="section-heading"><div><span>市场速览 · {feedLabel}</span><h2>AI 一句话状态</h2></div><Link href="/markets">查看全部资产 <ArrowRight size={16} /></Link></div>
@@ -73,7 +76,7 @@ function BriefDashboard({ previewAssets, feedLabel }: { previewAssets: MarketAss
   );
 }
 
-function LensDashboard({ previewAssets }: { previewAssets: MarketAsset[] }) {
+function LensDashboard({ previewAssets, weather }: { previewAssets: MarketAsset[]; weather: LiveMarketWeather }) {
   return (
     <section className="lens-dashboard" aria-label="信号透镜">
       <article className="plain-briefing">
@@ -83,9 +86,9 @@ function LensDashboard({ previewAssets }: { previewAssets: MarketAsset[] }) {
         <div className="plain-briefing__note"><Leaf size={18} />风险提醒：保持分散，给决定留一点缓冲。</div>
       </article>
       <aside className="lens-meters">
-        <MarketTemperatureCard detail="基础股票、代币结构与交易所流动性共同影响价格。" label="币股温度" value={62} />
-        <MarketTemperatureCard detail="资金回流主流币，波动偏温。" label="币圈温度" value={58} />
-        <MarketTemperatureCard detail="讨论热度回落，适合按计划执行。" kind="fomo" label="FOMO 指数" value={34} />
+        <MarketTemperatureCard detail={`上涨广度 ${weather.stockBreadth}%，基础标的已去重。`} label="币股温度" value={weather.stockTemperature} />
+        <MarketTemperatureCard detail={`上涨广度 ${weather.cryptoBreadth}%，币种代码已去重。`} label="币圈温度" value={weather.cryptoTemperature} />
+        <MarketTemperatureCard detail={`${weather.highVolatilityShare}% 的代表资产振幅超过 5%。`} kind="fomo" label="FOMO 指数" value={weather.fomoIndex} />
       </aside>
       <div className="ticker-rail">{previewAssets.map((asset) => <span key={asset.id}><small>{asset.symbol}</small><strong>{asset.price.toLocaleString()}</strong><em className={asset.change24h >= 0 ? "is-positive" : "is-negative"}>{asset.change24h >= 0 ? "+" : ""}{asset.change24h}%</em></span>)}</div>
       <div className="lens-table"><div className="section-heading"><div><span>核心资产</span><h2>不只看涨跌，也看信号质量</h2></div><Link href="/markets">完整行情 <ArrowRight size={16} /></Link></div>{previewAssets.map((asset) => <div className="lens-row" key={asset.id}><strong>{asset.symbol}</strong><span>{asset.name}</span><em>{asset.change24h >= 0 ? "+" : ""}{asset.change24h}%</em><p>{asset.aiHint}</p><span className="status-tag">{asset.aiTag}</span></div>)}</div>
@@ -93,14 +96,14 @@ function LensDashboard({ previewAssets }: { previewAssets: MarketAsset[] }) {
   );
 }
 
-function CalmDashboard({ cryptoAssets, stockAssets }: { cryptoAssets: MarketAsset[]; stockAssets: MarketAsset[] }) {
+function CalmDashboard({ cryptoAssets, stockAssets, weather }: { cryptoAssets: MarketAsset[]; stockAssets: MarketAsset[]; weather: LiveMarketWeather }) {
   return (
     <section className="calm-dashboard" aria-label="冷静打卡">
       <article className="calm-checkin">
-        <img alt="多云偏暖" src="/assets/market-weather.png" />
-        <div className="calm-checkin__weather"><strong>多云偏平静</strong><span>整体温和，局部分化</span></div>
-        <div className="calm-checkin__main"><h2>今天的市场，会让你上头吗？</h2><div className="calm-meter"><span>我的 FOMO 指数</span><strong>32<small>/100</small></strong><div className="meter"><span style={{ width: "32%" }} /></div><div><small>理性</small><small>中性</small><small>容易上头</small></div></div></div>
-        <div className="calm-checkin__quote"><span>AI 今日一句话</span><p>{marketSnapshot.headline}</p></div>
+        <img alt={weather.weather} src="/assets/market-weather.png" />
+        <div className="calm-checkin__weather"><strong>{weather.weather}</strong><span>全市场上涨广度 {weather.breadth}%</span></div>
+        <div className="calm-checkin__main"><h2>今天的市场，会让你上头吗？</h2><div className="calm-meter"><span>市场 FOMO 指数</span><strong>{weather.fomoIndex}<small>/100</small></strong><div className="meter"><span style={{ width: `${weather.fomoIndex}%` }} /></div><div><small>理性</small><small>中性</small><small>容易上头</small></div></div></div>
+        <div className="calm-checkin__quote"><span>AI 今日一句话</span><p>{weather.headline}</p></div>
         <div className="calm-checkin__bottom"><p><ShieldCheck size={17} />行情只是信息，不是行动指令。先看清，再决定。</p><Link href="/regret"><FirstAid size={17} />后悔药按钮</Link></div>
       </article>
       <div className="calm-markets"><MarketMini title="币股" assets={stockAssets.slice(0, 4)} /><MarketMini title="币圈" assets={cryptoAssets.slice(0, 4)} /></div>
@@ -110,7 +113,7 @@ function CalmDashboard({ cryptoAssets, stockAssets }: { cryptoAssets: MarketAsse
 }
 
 function MarketMini({ title, assets }: { title: string; assets: typeof allAssets }) {
-  return <section className="market-mini"><div className="section-heading"><div><span>盘中更新</span><h2>{title}</h2></div><Link href="/markets">更多 <ArrowRight size={14} /></Link></div>{assets.map((asset) => <div className="market-mini__row" key={asset.id}><span className={`asset-avatar asset-avatar--${asset.market}`}>{asset.symbol[0]}</span><span><strong>{asset.symbol}</strong><small>{asset.name}</small></span><strong>${asset.price.toLocaleString()}</strong><em className={asset.change24h >= 0 ? "is-positive" : "is-negative"}>{asset.change24h >= 0 ? "+" : ""}{asset.change24h}%</em><p>{asset.aiHint}</p></div>)}</section>;
+  return <section className="market-mini"><div className="section-heading"><div><span>盘中更新</span><h2>{title}</h2></div><Link href="/markets">更多 <ArrowRight size={14} /></Link></div>{assets.map((asset) => <div className="market-mini__row" key={asset.id}><AssetLogo asset={asset} size={28} /><span><strong>{asset.symbol}</strong><small>{asset.name}</small></span><strong>${asset.price.toLocaleString()}</strong><em className={asset.change24h >= 0 ? "is-positive" : "is-negative"}>{asset.change24h >= 0 ? "+" : ""}{asset.change24h}%</em><p>{asset.aiHint}</p></div>)}</section>;
 }
 
 export function HomeDashboard() {
@@ -119,6 +122,7 @@ export function HomeDashboard() {
   const [cryptoAssets, setCryptoAssets] = useState<MarketAsset[]>(cryptoData.slice(0, 4));
   const [stockAssets, setStockAssets] = useState<MarketAsset[]>(stockData.slice(0, 4));
   const [feedLabel, setFeedLabel] = useState("行情状态检查中");
+  const [weather, setWeather] = useState<LiveMarketWeather>(fallbackWeather);
 
   useEffect(() => {
     let active = true;
@@ -134,6 +138,7 @@ export function HomeDashboard() {
         setCryptoAssets(liveCrypto.slice(0, 4));
         setStockAssets(availableStocks.slice(0, 4));
         setPreviewAssets([btc, eth, nvda, qqq].filter((asset): asset is MarketAsset => Boolean(asset)));
+        setWeather(buildMarketWeather({ cryptoAssets: liveCrypto, stockAssets: availableStocks, cryptoProviders: cryptoFeed.providers, stockProviders: stockFeed.providers, cryptoMode: cryptoFeed.mode, stockMode: stockFeed.mode, updatedAt: [cryptoFeed.updatedAt, stockFeed.updatedAt].sort().at(-1) }));
         const cryptoSources = cryptoFeed.providers?.filter((provider) => provider.status === "live").length ?? 0;
         const stockSources = stockFeed.providers?.filter((provider) => provider.status === "live").length ?? 0;
         const cryptoLabel = cryptoFeed.mode === "live" ? `币圈 ${cryptoSources} 源准实时` : cryptoFeed.mode === "cached" ? "币圈官方缓存" : "币圈演示";
@@ -151,7 +156,7 @@ export function HomeDashboard() {
   return (
     <>
       <Hero />
-      {mode === "brief" ? <BriefDashboard feedLabel={feedLabel} previewAssets={previewAssets} /> : mode === "lens" ? <LensDashboard previewAssets={previewAssets} /> : <CalmDashboard cryptoAssets={cryptoAssets} stockAssets={stockAssets} />}
+      {mode === "brief" ? <BriefDashboard feedLabel={feedLabel} previewAssets={previewAssets} weather={weather} /> : mode === "lens" ? <LensDashboard previewAssets={previewAssets} weather={weather} /> : <CalmDashboard cryptoAssets={cryptoAssets} stockAssets={stockAssets} weather={weather} />}
       <section className="daily-entry-grid" aria-label="每日内容入口">
         <Link className="daily-entry-card daily-entry-card--hot" href="/hotspots"><span><Newspaper size={24} weight="duotone" /></span><div><small>Daily pulse</small><h2>每日热点</h2><p>三分钟看懂今天真正影响币股、币圈和市场情绪的主线。</p></div><ArrowRight size={18} /></Link>
         <Link className="daily-entry-card" href="/calendar"><span><CalendarCheck size={24} weight="duotone" /></span><div><small>Macro schedule</small><h2>财经日历</h2><p>按北京时间查看央行决议、通胀、就业和增长数据等高影响事件。</p></div><ArrowRight size={18} /></Link>

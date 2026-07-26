@@ -5,15 +5,17 @@ import { useRouter } from "next/navigation";
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { AIExplanationModal } from "@/components/AIExplanationModal";
 import { useAppState } from "@/components/AppStateProvider";
+import { ExchangeLogo } from "@/components/ExchangeLogo";
 import { MarketTable } from "@/components/MarketTable";
 import { MarketIntelligencePanel } from "@/components/MarketIntelligencePanel";
 import { MarketTemperatureCard } from "@/components/MarketTemperatureCard";
+import { MarketTickerTape } from "@/components/MarketTickerTape";
 import { Watchlist } from "@/components/Watchlist";
-import { marketSnapshot } from "@/data/market";
 import { expandedCryptoData, expandedStockData, marketUniverse } from "@/data/expandedMarket";
 import { buildAssetCalmPrompt, generateAssetExplanation } from "@/services/aiAnalysis";
 import { fetchMarketFeed, type MarketFeedResult, type MarketProviderSummary } from "@/services/marketProviders";
 import { calculateMarketSpreads, mergeStreamQuotes } from "@/services/marketStream";
+import { buildMarketWeather } from "@/services/marketWeather";
 import type { AIExplanation, MarketAsset, MarketSpread, StreamQuoteSnapshot, StreamingSummary } from "@/types/market";
 
 type Tab = "crypto" | "stocks" | "watchlist";
@@ -41,7 +43,7 @@ export function MarketExplorer() {
   const [query, setQuery] = useState("");
   const [sector, setSector] = useState("全部");
   const [venue, setVenue] = useState("全部交易所");
-  const [sort, setSort] = useState<SortKey>("volume");
+  const [sort, setSort] = useState<SortKey>("change");
   const [visibleCount, setVisibleCount] = useState(pageSize);
   const [cryptoFeed, setCryptoFeed] = useState<MarketAsset[] | null>(null);
   const cryptoFeedRef = useRef<MarketAsset[] | null>(null);
@@ -191,6 +193,15 @@ export function MarketExplorer() {
   }, [baseAssets, deferredQuery, sector, sort, venue]);
 
   const visibleAssets = filteredAssets.slice(0, visibleCount);
+  const weatherSnapshot = useMemo(() => buildMarketWeather({
+    cryptoAssets: cryptoFeed ?? expandedCryptoData,
+    stockAssets: stockFeed ?? expandedStockData,
+    cryptoProviders: cryptoStatus?.providers,
+    stockProviders: stockStatus?.providers,
+    cryptoMode: cryptoStatus?.mode ?? "loading",
+    stockMode: stockStatus?.mode ?? "loading",
+    updatedAt: [cryptoStatus?.updatedAt, stockStatus?.updatedAt].filter(Boolean).sort().at(-1),
+  }), [cryptoFeed, cryptoStatus, stockFeed, stockStatus]);
 
   const switchTab = (nextTab: Tab) => {
     setTab(nextTab);
@@ -198,7 +209,7 @@ export function MarketExplorer() {
     setSector("全部");
     setVenue("全部交易所");
     setRemoteSearch(null);
-    setSort(nextTab === "stocks" ? "symbol" : "volume");
+    setSort("change");
     setVisibleCount(pageSize);
   };
 
@@ -223,11 +234,13 @@ export function MarketExplorer() {
         <div className="market-coverage"><Broadcast size={22} weight="duotone" /><div><strong>{cryptoFeed && stockFeed ? `${cryptoFeed.length} 个币圈 + ${stockFeed.length} 个币股行情` : "正在连接币圈与币股行情"}</strong><span>10 个币圈现货源 · 5 个币股产品源 · 单源故障隔离</span></div></div>
       </header>
 
+      <MarketTickerTape assets={cryptoFeed ?? expandedCryptoData} />
+
       <section className="temperature-grid">
-        <MarketTemperatureCard detail="热门币股跟随基础股票波动，产品结构和流动性也会放大差异。" label="币股温度" value={marketSnapshot.stockTemperature} />
-        <MarketTemperatureCard detail="BTC 稳住，山寨开始活跃，波动有所放大。" label="币圈温度" value={marketSnapshot.cryptoTemperature} />
-        <MarketTemperatureCard detail="总体仍平静，局部热点更容易诱发冲动。" kind="fomo" label="FOMO 指数" value={marketSnapshot.fomoIndex} />
-        <article className="risk-note-card"><ShieldWarning size={23} weight="duotone" /><div><span>今日风险提示</span><p>{marketSnapshot.riskNote}</p></div></article>
+        <MarketTemperatureCard detail={`上涨广度 ${weatherSnapshot.stockBreadth}%，按基础标的去重计算。`} label="币股温度" value={weatherSnapshot.stockTemperature} />
+        <MarketTemperatureCard detail={`上涨广度 ${weatherSnapshot.cryptoBreadth}%，按币种代码去重计算。`} label="币圈温度" value={weatherSnapshot.cryptoTemperature} />
+        <MarketTemperatureCard detail={`${weatherSnapshot.highVolatilityShare}% 的代表资产振幅超过 5%。`} kind="fomo" label="FOMO 指数" value={weatherSnapshot.fomoIndex} />
+        <article className="risk-note-card"><ShieldWarning size={23} weight="duotone" /><div><span>实时风险提示</span><p>{weatherSnapshot.riskNote}</p></div></article>
       </section>
 
       <section className="market-workspace">
@@ -251,7 +264,7 @@ export function MarketExplorer() {
           const isUnavailable = provider.status === "unavailable" && provider.count === 0;
           const statusLabel = provider.status === "live" ? "在线" : provider.status === "cached" ? "缓存" : provider.status === "catalog" ? "目录" : provider.name === "Kraken" && tab === "stocks" ? "地区/API 受限" : "暂不可用";
           return <div className="market-provider-card" data-selected={isSelected} data-status={provider.status} key={`${tab}-${provider.name}`}>
-            <button aria-label={`${isSelected ? "取消" : "只看"} ${provider.name} ${provider.product}`} aria-pressed={isSelected} disabled={isUnavailable} onClick={() => { setVenue(isSelected ? "全部交易所" : provider.name); setVisibleCount(pageSize); }} type="button"><span><strong>{provider.name}</strong><small>{provider.product} · {provider.count} 个 · {statusLabel}{typeof provider.latencyMs === "number" ? ` · ${provider.latencyMs}ms` : ""}</small></span></button>
+            <button aria-label={`${isSelected ? "取消" : "只看"} ${provider.name} ${provider.product}`} aria-pressed={isSelected} disabled={isUnavailable} onClick={() => { setVenue(isSelected ? "全部交易所" : provider.name); setVisibleCount(pageSize); }} type="button"><ExchangeLogo name={provider.name} /><span><strong>{provider.name}</strong><small>{provider.product} · {provider.count} 个 · {statusLabel}{typeof provider.latencyMs === "number" ? ` · ${provider.latencyMs}ms` : ""}</small></span></button>
             {provider.docsUrl ? <a aria-label={`${provider.name} 官方接口文档`} href={provider.docsUrl} rel="noreferrer" target="_blank">接口</a> : null}
           </div>;
         })}</div> : null}
