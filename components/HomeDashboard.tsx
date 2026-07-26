@@ -18,18 +18,15 @@ import {
 } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { createPortal } from "react-dom";
 import { useAppState } from "@/components/AppStateProvider";
 import { AssetLogo } from "@/components/AssetLogo";
 import { FeatureCard } from "@/components/FeatureCard";
 import { MarketTemperatureCard } from "@/components/MarketTemperatureCard";
-import { MarketTickerTape } from "@/components/MarketTickerTape";
-import { NewsTickerTape } from "@/components/NewsTickerTape";
 import { allAssets, cryptoData, stockData } from "@/data/market";
 import { formatPercent, formatPrice } from "@/services/format";
 import { fetchMarketFeed } from "@/services/marketProviders";
 import { buildMarketWeather, type LiveMarketWeather } from "@/services/marketWeather";
-import type { EditorialFeedItem, EditorialFeedSnapshot, MarketAsset } from "@/types/market";
+import type { MarketAsset } from "@/types/market";
 
 const fallbackPreviewAssets = [cryptoData[0], cryptoData[1], cryptoData[2], stockData[2], stockData[3]];
 const fallbackWeather = buildMarketWeather({ cryptoAssets: cryptoData, stockAssets: stockData, cryptoMode: "fallback", stockMode: "fallback" });
@@ -158,37 +155,9 @@ export function HomeDashboard() {
   const { mode } = useAppState();
   const [previewAssets, setPreviewAssets] = useState<MarketAsset[]>(fallbackPreviewAssets);
   const [cryptoAssets, setCryptoAssets] = useState<MarketAsset[]>(cryptoData.slice(0, 4));
-  const [tickerAssets, setTickerAssets] = useState<MarketAsset[]>(cryptoData);
   const [stockAssets, setStockAssets] = useState<MarketAsset[]>(stockData.slice(0, 4));
-  const [newsItems, setNewsItems] = useState<EditorialFeedItem[]>([]);
-  const [tickerTarget, setTickerTarget] = useState<HTMLElement | null>(null);
   const [feedLabel, setFeedLabel] = useState("行情状态检查中");
   const [weather, setWeather] = useState<LiveMarketWeather>(fallbackWeather);
-
-  useEffect(() => {
-    setTickerTarget(document.getElementById("home-top-tickers"));
-  }, []);
-
-  useEffect(() => {
-    let active = true;
-    const loadNews = () => {
-      fetch("/api/editorial", { cache: "no-store" })
-        .then((response) => {
-          if (!response.ok) throw new Error("editorial feed unavailable");
-          return response.json() as Promise<EditorialFeedSnapshot>;
-        })
-        .then((snapshot) => {
-          if (active) setNewsItems(snapshot.items);
-        })
-        .catch(() => undefined);
-    };
-    loadNews();
-    const timer = window.setInterval(loadNews, 120_000);
-    return () => {
-      active = false;
-      window.clearInterval(timer);
-    };
-  }, []);
 
   useEffect(() => {
     let active = true;
@@ -202,7 +171,6 @@ export function HomeDashboard() {
         const sol = liveCrypto.find((asset) => asset.symbol === "SOL") ?? liveCrypto[2];
         const nvda = availableStocks.find((asset) => asset.symbol.toUpperCase().includes("NVDA")) ?? availableStocks[0];
         const tsla = availableStocks.find((asset) => asset.symbol.toUpperCase().includes("TSLA")) ?? availableStocks[1];
-        setTickerAssets(liveCrypto);
         setCryptoAssets(liveCrypto.slice(0, 4));
         setStockAssets(availableStocks.slice(0, 4));
         setPreviewAssets([btc, eth, sol, nvda, tsla].filter((asset): asset is MarketAsset => Boolean(asset)));
@@ -223,7 +191,6 @@ export function HomeDashboard() {
 
   return (
     <>
-      {tickerTarget ? createPortal(<div className="home-top-tickers"><MarketTickerTape assets={tickerAssets} /><NewsTickerTape items={newsItems} /></div>, tickerTarget) : null}
       <HomeMarketSpotlight assets={previewAssets} feedLabel={feedLabel} weather={weather} />
       <Hero />
       {mode === "brief" ? <BriefDashboard weather={weather} /> : mode === "lens" ? <LensDashboard previewAssets={previewAssets} weather={weather} /> : <CalmDashboard cryptoAssets={cryptoAssets} stockAssets={stockAssets} weather={weather} />}
