@@ -92,6 +92,29 @@ type KrakenTicker = {
   v?: string[];
 };
 
+type KrakenFuturesInstrument = {
+  symbol: string;
+  type?: string;
+  tradeable?: boolean;
+  isExpired?: boolean;
+  base: string;
+  quote: string;
+  pair?: string;
+  category?: string;
+};
+
+type KrakenFuturesTicker = {
+  symbol: string;
+  pair?: string;
+  last?: number;
+  markPrice?: number;
+  indexPrice?: number;
+  open24h?: number;
+  vol24h?: number;
+  volumeQuote?: number;
+  suspended?: boolean;
+};
+
 type HtxTicker = {
   symbol: string;
   open: number;
@@ -139,9 +162,13 @@ const BINANCE_FEATURED_TICKERS = ["AAPL", "NVDA", "TSLA", "MSFT", "AMZN", "META"
 const STOCK_NAMES: Record<string, string> = {
   AAPL: "苹果",
   AMZN: "亚马逊",
+  CRCL: "Circle",
+  GLD: "黄金 ETF",
   GOOGL: "Alphabet",
+  HOOD: "Robinhood",
   META: "Meta",
   MSFT: "微软",
+  MSTR: "Strategy",
   NVDA: "英伟达",
   QQQ: "纳斯达克 100 ETF",
   SPY: "标普 500 ETF",
@@ -183,6 +210,12 @@ function krakenXStockUnderlying(key: string, pair: KrakenPair) {
   }
 
   return null;
+}
+
+function krakenFuturesXStockUnderlying(instrument: KrakenFuturesInstrument) {
+  const suffixMatch = instrument.base.match(/^([A-Z0-9.]{1,16})x$/);
+  if (instrument.category?.toLowerCase() !== "xstocks" && !suffixMatch) return null;
+  return (suffixMatch?.[1] ?? instrument.base.replace(/x$/i, "")).toUpperCase();
 }
 
 async function fetchJson<T>(url: string, revalidate = 8, headers?: HeadersInit): Promise<T> {
@@ -553,7 +586,7 @@ async function fetchBybitStockTokens(): Promise<ProviderResult> {
   return { assets, count: assets.length };
 }
 
-async function fetchKrakenStockTokens(): Promise<ProviderResult> {
+async function fetchKrakenSpotStockTokens() {
   const [pairsPayload, tickersPayload] = await Promise.all([
     fetchJson<{ error?: string[]; result?: Record<string, KrakenPair> }>("https://api.kraken.com/0/public/AssetPairs?assetVersion=1", 30),
     fetchJson<{ error?: string[]; result?: Record<string, KrakenTicker> }>("https://api.kraken.com/0/public/Ticker?assetVersion=1", 5),
@@ -588,6 +621,72 @@ async function fetchKrakenStockTokens(): Promise<ProviderResult> {
       underlying,
     }];
   });
+  return assets;
+}
+
+async function fetchKrakenFuturesStockTokens() {
+  const [instrumentsPayload, tickersPayload] = await Promise.all([
+    fetchJson<{ result?: string; instruments?: KrakenFuturesInstrument[] }>("https://futures.kraken.com/derivatives/api/v3/instruments", 30),
+    fetchJson<{ result?: string; tickers?: KrakenFuturesTicker[] }>("https://futures.kraken.com/derivatives/api/v3/tickers", 5),
+  ]);
+  if (instrumentsPayload.result !== "success" || tickersPayload.result !== "success") {
+    throw new Error("Kraken xStocks futures data unavailable");
+  }
+
+  const tickerMap = new Map<string, KrakenFuturesTicker>();
+  for (const ticker of tickersPayload.tickers ?? []) {
+    tickerMap.set(normalizedPair(ticker.symbol), ticker);
+    if (ticker.pair) tickerMap.set(normalizedPair(ticker.pair), ticker);
+  }
+
+  return (instrumentsPayload.instruments ?? []).flatMap((instrument): MarketAsset[] => {
+    const underlying = krakenFuturesXStockUnderlying(instrument);
+    if (!underlying || instrument.tradeable === false || instrument.isExpired) return [];
+    const ticker = [instrument.symbol, instrument.pair ?? ""]
+      .map(normalizedPair)
+      .map((candidate) => tickerMap.get(candidate))
+      .find(Boolean);
+    if (!ticker || ticker.suspended) return [];
+    const price = numberOrZero(ticker.last) || numberOrZero(ticker.markPrice) || numberOrZero(ticker.indexPrice);
+    if (!price) return [];
+    const open = numberOrZero(ticker.open24h);
+    const quote = instrument.quote.toUpperCase();
+    return [{
+      id: `kraken-futures-${normalizedPair(instrument.symbol).toLowerCase()}`,
+      name: `${tokenName(underlying)}永续`,
+      symbol: instrument.base,
+      price,
+      change24h: open ? ((price - open) / open) * 100 : 0,
+      volume: numberOrZero(ticker.volumeQuote) || numberOrZero(ticker.vol24h) * price,
+      marketCap: 0,
+      narrative: `Kraken xStocks · ${quote} 永续`,
+      aiTag: "xStocks 永续",
+      aiHint: "Kraken xStocks 永续是带资金费率、保证金与强平风险的衍生品，不等于持有现货币股或登记股票；地区可用性仍以 Kraken 为准。",
+      volumeChange: 0,
+      market: "stock",
+      venue: "Kraken",
+      sector: "币股永续",
+      productType: "tokenized-perpetual",
+      quoteCurrency: quote,
+      underlying,
+    }];
+  });
+}
+
+async function fetchKrakenStockTokens(): Promise<ProviderResult> {
+  const [spotResult, futuresResult] = await Promise.allSettled([
+    fetchKrakenSpotStockTokens(),
+    fetchKrakenFuturesStockTokens(),
+  ]);
+  const assets = Array.from(new Map([
+    ...(spotResult.status === "fulfilled" ? spotResult.value : []),
+    ...(futuresResult.status === "fulfilled" ? futuresResult.value : []),
+  ].map((asset) => [asset.id, asset])).values());
+
+  if (!assets.length && spotResult.status === "rejected" && futuresResult.status === "rejected") {
+    throw new Error("Kraken xStocks spot and futures data unavailable");
+  }
+
   return { assets, count: assets.length };
 }
 
@@ -648,7 +747,7 @@ export const cryptoProviderAdapters: MarketProviderAdapter[] = [
 export const stockProviderAdapters: MarketProviderAdapter[] = [
   { name: "Bitget", product: "rToken 现货", docsUrl: "https://www.bitget.com/api-doc/spot/market/Get-Tickers", load: fetchBitgetStockTokens },
   { name: "Bybit", product: "xStocks 现货", docsUrl: "https://bybit-exchange.github.io/docs/v5/market/instrument", load: fetchBybitStockTokens },
-  { name: "Kraken", product: "xStocks 现货", docsUrl: "https://docs.kraken.com/api-reference/market-data/get-tradable-asset-pairs", load: fetchKrakenStockTokens },
+  { name: "Kraken", product: "xStocks 现货/永续", docsUrl: "https://docs.kraken.com/api/docs/futures-api/trading/get-instruments/", load: fetchKrakenStockTokens },
   { name: "OKX", product: "币股永续", docsUrl: "https://www.okx.com/docs-v5/en/#public-data-rest-api-get-instruments", load: fetchOkxStockPerpetuals },
   { name: "Binance Web3", product: "Ondo 链上币股目录", docsUrl: "https://www.binance.com/skills/detail/binance-web3/binance-tokenized-securities-info", load: fetchBinanceOnchainStocks },
 ];

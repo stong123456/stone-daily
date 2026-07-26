@@ -10,7 +10,8 @@ $temporaryPath = Join-Path $runtimeDirectory 'tokenized-stocks.tmp.json'
 $utf8 = [System.Text.UTF8Encoding]::new($false)
 $stockNames = @{
   AAPL = '苹果'; AMZN = '亚马逊'; GOOGL = 'Alphabet'; META = 'Meta'; MSFT = '微软';
-  NVDA = '英伟达'; QQQ = '纳斯达克 100 ETF'; SPY = '标普 500 ETF'; TSLA = '特斯拉'
+  CRCL = 'Circle'; GLD = '黄金 ETF'; HOOD = 'Robinhood'; MSTR = 'Strategy'; NVDA = '英伟达';
+  QQQ = '纳斯达克 100 ETF'; SPY = '标普 500 ETF'; TSLA = '特斯拉'
 }
 
 function Convert-Number($value) {
@@ -86,18 +87,19 @@ function Sync-TokenizedStocks {
     $providers.Add([pscustomobject]@{ name = 'Bybit'; product = 'xStocks 现货'; count = 0; status = 'unavailable' })
   }
 
+  $krakenCount = 0
   try {
-    $pairs = Invoke-RestMethod -Uri 'https://api.kraken.com/0/public/AssetPairs?assetVersion=1&aclass_base=tokenized_asset'
+    $pairs = Invoke-RestMethod -Uri 'https://api.kraken.com/0/public/AssetPairs?assetVersion=1'
     $tickers = Invoke-RestMethod -Uri 'https://api.kraken.com/0/public/Ticker?assetVersion=1'
     $tickerMap = @{}
     foreach ($property in $tickers.result.PSObject.Properties) {
       $normalized = ($property.Name -replace '[^A-Za-z0-9]', '').ToUpperInvariant()
       $tickerMap[$normalized] = $property.Value
     }
-    $count = 0
     foreach ($property in $pairs.result.PSObject.Properties) {
       $item = $property.Value
-      if ($item.aclass_base -ne 'tokenized_asset' -or ($item.status -and $item.status -ne 'online')) { continue }
+      $isXStock = $item.aclass_base -eq 'tokenized_asset' -or ([string]$item.base -cmatch '^[A-Z0-9.]{1,16}x$')
+      if (-not $isXStock -or ($item.status -and $item.status -ne 'online')) { continue }
       $ticker = $null
       foreach ($candidate in @($property.Name, $item.altname, $item.wsname)) {
         if ([string]::IsNullOrWhiteSpace([string]$candidate)) { continue }
@@ -118,12 +120,44 @@ function Sync-TokenizedStocks {
         volumeChange = 0; market = 'stock'; venue = 'Kraken'; sector = '币股现货'; productType = 'tokenized-spot';
         quoteCurrency = $item.quote; underlying = $underlying
       })
-      $count++
+      $krakenCount++
     }
-    $providers.Add([pscustomobject]@{ name = 'Kraken'; product = 'xStocks 现货'; count = $count; status = 'live' })
-  } catch {
-    $providers.Add([pscustomobject]@{ name = 'Kraken'; product = 'xStocks 现货'; count = 0; status = 'unavailable' })
-  }
+  } catch {}
+
+  try {
+    $instruments = Invoke-RestMethod -Uri 'https://futures.kraken.com/derivatives/api/v3/instruments'
+    $futuresTickers = Invoke-RestMethod -Uri 'https://futures.kraken.com/derivatives/api/v3/tickers'
+    $futuresTickerMap = @{}
+    foreach ($ticker in $futuresTickers.tickers) {
+      $futuresTickerMap[([string]$ticker.symbol).ToUpperInvariant()] = $ticker
+    }
+    foreach ($item in $instruments.instruments) {
+      if ($item.category -ne 'xStocks' -or $item.tradeable -eq $false -or $item.isExpired) { continue }
+      $ticker = $futuresTickerMap[([string]$item.symbol).ToUpperInvariant()]
+      if ($null -eq $ticker -or $ticker.suspended) { continue }
+      $price = Convert-Number $ticker.last
+      if ($price -le 0) { $price = Convert-Number $ticker.markPrice }
+      if ($price -le 0) { $price = Convert-Number $ticker.indexPrice }
+      if ($price -le 0) { continue }
+      $open = Convert-Number $ticker.open24h
+      $change = $(if ($open -gt 0) { (($price - $open) / $open) * 100 } else { 0 })
+      $volume = Convert-Number $ticker.volumeQuote
+      if ($volume -le 0) { $volume = (Convert-Number $ticker.vol24h) * $price }
+      $underlying = ([string]$item.base -replace 'x$', '').ToUpperInvariant()
+      $assets.Add([pscustomobject]@{
+        id = "kraken-futures-$(([string]$item.symbol).ToLowerInvariant())"; name = "$(Get-TokenName $underlying)永续"; symbol = $item.base;
+        price = $price; change24h = $change; volume = $volume; marketCap = 0;
+        narrative = "Kraken xStocks · $($item.quote) 永续"; aiTag = 'xStocks 永续';
+        aiHint = 'Kraken xStocks 永续是带资金费率、保证金与强平风险的衍生品，不等于持有现货币股或登记股票；地区可用性仍以 Kraken 为准。';
+        volumeChange = 0; market = 'stock'; venue = 'Kraken'; sector = '币股永续'; productType = 'tokenized-perpetual';
+        quoteCurrency = $item.quote; underlying = $underlying
+      })
+      $krakenCount++
+    }
+  } catch {}
+
+  $krakenStatus = $(if ($krakenCount -gt 0) { 'live' } else { 'unavailable' })
+  $providers.Add([pscustomobject]@{ name = 'Kraken'; product = 'xStocks 现货/永续'; count = $krakenCount; status = $krakenStatus })
 
   try {
     $instruments = Invoke-RestMethod -Uri 'https://www.okx.com/api/v5/public/instruments?instType=SWAP'
