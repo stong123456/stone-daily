@@ -266,13 +266,13 @@ export function MarketExplorer() {
           </div>;
         })}</div> : null}
         <div className="market-workspace__meta"><Brain size={17} /><p>{feedStatus.mode === "live" ? `${feedStatus.source}已连接，${directStreamConnected ? "币圈报价由 Railway 流网关直接推送" : feedStatus.streaming ? "币圈报价正在读取共享流快照" : "页面按快照刷新"}。各交易所价格保留为独立行；成交量仅用于单平台内比较，不做误导性的全网加总。币股现货、链上代币和永续合约也不会混成同一种产品。` : feedStatus.mode === "cached" ? `${feedStatus.source}。这是官方接口最近一次成功同步的快照，不冒充实时流；生产部署恢复直连后会自动切换为准实时。` : "当前使用本地演示目录；恢复后会自动重新连接交易所公开行情。"}</p><span className="feed-badge" data-mode={feedStatus.mode}>{feedStatus.mode === "loading" ? "连接中" : feedStatus.streaming ? `秒级流 · ${feedStatus.streaming.lagMs}ms` : feedStatus.mode === "live" ? "后台快照" : feedStatus.mode === "cached" ? "官方缓存" : "演示"}</span><strong>{filteredAssets.length} 个结果</strong></div>
-        {tab === "crypto" ? <MarketIntelligencePanel spreads={feedStatus.spreads ?? []} streaming={feedStatus.streaming} /> : null}
         {tab === "watchlist" ? (
           <Watchlist assets={visibleAssets} loadingId={loadingId} onCalm={calm} onExplain={explain} onToggleWatchlist={toggleWatchlist} />
         ) : (
           <MarketTable assets={visibleAssets} loadingId={loadingId} onCalm={calm} onExplain={explain} onToggleWatchlist={toggleWatchlist} watchlistIds={watchlistIds} />
         )}
         {filteredAssets.length > visibleCount ? <div className="market-load-more"><button className="button button--secondary" onClick={() => setVisibleCount((count) => count + pageSize)} type="button">继续加载 {Math.min(pageSize, filteredAssets.length - visibleCount)} 个资产</button></div> : null}
+        {tab === "crypto" ? <MarketIntelligencePanel spreads={feedStatus.spreads ?? []} streaming={feedStatus.streaming} /> : null}
       </section>
       <AIExplanationModal asset={selected} explanation={explanation} onClose={() => setSelected(null)} open={Boolean(selected)} />
     </>
