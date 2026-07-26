@@ -76,7 +76,7 @@ function countdown(value: string) {
 
 export function EconomicCalendarPortal() {
   const [snapshot, setSnapshot] = useState<EconomicCalendarSnapshot | null>(null);
-  const [range, setRange] = useState<RangeFilter>("本周");
+  const [range, setRange] = useState<RangeFilter>("全部");
   const [region, setRegion] = useState<RegionFilter>("全球");
   const [importance, setImportance] = useState<ImportanceFilter>("中高影响");
   const [loadFailed, setLoadFailed] = useState(false);

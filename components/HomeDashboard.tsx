@@ -13,30 +13,32 @@ import {
   Newspaper,
   ShieldCheck,
   Sparkle,
+  Star,
   WarningCircle,
 } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { useAppState } from "@/components/AppStateProvider";
 import { AssetLogo } from "@/components/AssetLogo";
-import { AssetRow } from "@/components/AssetRow";
 import { FeatureCard } from "@/components/FeatureCard";
 import { MarketTemperatureCard } from "@/components/MarketTemperatureCard";
+import { MarketTickerTape } from "@/components/MarketTickerTape";
+import { NewsTickerTape } from "@/components/NewsTickerTape";
 import { allAssets, cryptoData, stockData } from "@/data/market";
-import { buildAssetCalmPrompt } from "@/services/aiAnalysis";
+import { formatPercent, formatPrice } from "@/services/format";
 import { fetchMarketFeed } from "@/services/marketProviders";
 import { buildMarketWeather, type LiveMarketWeather } from "@/services/marketWeather";
-import type { MarketAsset } from "@/types/market";
+import type { EditorialFeedItem, EditorialFeedSnapshot, MarketAsset } from "@/types/market";
 
-const fallbackPreviewAssets = [cryptoData[0], cryptoData[1], stockData[2], stockData[1]];
+const fallbackPreviewAssets = [cryptoData[0], cryptoData[1], cryptoData[2], stockData[2], stockData[3]];
 const fallbackWeather = buildMarketWeather({ cryptoAssets: cryptoData, stockAssets: stockData, cryptoMode: "fallback", stockMode: "fallback" });
 
 function Hero() {
   return (
     <section className="home-hero">
       <img alt="平静海岸与灯塔" className="home-hero__landscape" src="/assets/calm-coast.png" />
-      <h1>普通人也能看懂的 AI 行情站</h1>
-      <p>看币股、看币圈、看热点，也看自己有没有上头。Stone Daily 不喊单，不承诺收益，只帮你把市场翻译成人话。</p>
+      <div className="home-hero__copy"><h1>普通人也能看懂的 AI 行情站</h1><p>看币股、看币圈、看热点，也看自己有没有上头。Stone Daily 不喊单，不承诺收益，只帮你把市场翻译成人话。</p></div>
       <div className="home-hero__actions">
         <Link className="button button--primary" href="/markets"><ChartLineUp size={19} />看实时行情</Link>
         <Link className="button button--secondary" href="/weather"><CloudSun size={19} />今日市场天气</Link>
@@ -47,8 +49,50 @@ function Hero() {
   );
 }
 
-function BriefDashboard({ previewAssets, feedLabel, weather }: { previewAssets: MarketAsset[]; feedLabel: string; weather: LiveMarketWeather }) {
+function HomeMarketSpotlight({ assets, feedLabel, weather }: { assets: MarketAsset[]; feedLabel: string; weather: LiveMarketWeather }) {
   const { watchlistIds, toggleWatchlist } = useAppState();
+  return (
+    <section className="home-market-spotlight" aria-labelledby="home-live-market-title">
+      <div className="home-market-spotlight__table" role="table" aria-label="实时市场行情">
+        <header className="home-market-spotlight__header">
+          <div>
+            <h2 id="home-live-market-title">实时行情</h2>
+            <span className="home-market-spotlight__status"><i />数据实时更新中</span>
+            <small>{feedLabel}</small>
+          </div>
+          <Link href="/markets">查看全部行情 <ArrowRight size={16} /></Link>
+        </header>
+        <div className="home-market-spotlight__head" role="row">
+          <span role="columnheader">资产</span><span role="columnheader">价格 (USD)</span><span role="columnheader">24H 涨跌</span><span role="columnheader">来源 / 交易所</span><span role="columnheader">AI 信号（简明解读）</span><span role="columnheader">操作</span>
+        </div>
+        <div className="home-market-spotlight__rows">
+          {assets.map((asset) => (
+            <div className="home-market-spotlight__row" key={asset.id} role="row">
+              <div className="home-market-spotlight__asset" role="cell"><AssetLogo asset={asset} size={32} /><span><strong>{asset.symbol}</strong><small>{asset.name}</small></span></div>
+              <div className="home-market-spotlight__price" role="cell"><strong>{formatPrice(asset.price)}</strong><small>{asset.narrative}</small></div>
+              <strong className={asset.change24h >= 0 ? "is-positive" : "is-negative"} role="cell">{formatPercent(asset.change24h)}</strong>
+              <span className="home-market-spotlight__venue" role="cell">{asset.venue ?? (asset.market === "crypto" ? "多交易所聚合" : "币股聚合")}</span>
+              <div className="home-market-spotlight__signal" role="cell"><span className="status-tag">{asset.aiTag}</span><small>{asset.aiHint}</small></div>
+              <div className="home-market-spotlight__actions" role="cell">
+                <Link className="row-action" href="/markets"><Brain size={15} />AI 解读</Link>
+                <button aria-label={watchlistIds.includes(asset.id) ? `移除 ${asset.symbol} 自选` : `将 ${asset.symbol} 加入自选`} className="row-action row-action--icon" data-active={watchlistIds.includes(asset.id)} onClick={() => toggleWatchlist(asset.id)} type="button"><Star size={16} weight={watchlistIds.includes(asset.id) ? "fill" : "regular"} /></button>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="home-market-spotlight__foot"><span>支持自选与更多资产添加，创建你自己的关注列表。</span><Link href="/markets">自选管理 <ArrowRight size={14} /></Link></div>
+      </div>
+      <aside className="home-market-spotlight__metrics" aria-label="实时市场指标">
+        <article><small>市场广度</small><strong>{weather.breadth}<span>/100</span></strong><div className="meter"><span style={{ width: `${weather.breadth}%` }} /></div><p>币股 {weather.stockBreadth}% · 币圈 {weather.cryptoBreadth}%</p></article>
+        <article><small>情绪温度</small><strong>{weather.score}<span>/100</span></strong><div className="meter"><span style={{ width: `${weather.score}%` }} /></div><p>{weather.weather}</p></article>
+        <article className="home-market-spotlight__fomo"><small>FOMO 指数</small><strong>{weather.fomoIndex}<span>/100</span></strong><em>{weather.fomoIndex >= 70 ? "偏热" : weather.fomoIndex >= 45 ? "中性" : "平静"}</em><div className="meter"><span style={{ width: `${weather.fomoIndex}%` }} /></div><p>{weather.headline}</p></article>
+        <Link href="/weather">更多市场数据 <ArrowRight size={14} /></Link>
+      </aside>
+    </section>
+  );
+}
+
+function BriefDashboard({ weather }: { weather: LiveMarketWeather }) {
   return (
     <section className="brief-dashboard" aria-label="今日市场总览">
       <div className="brief-dashboard__main">
@@ -58,12 +102,6 @@ function BriefDashboard({ previewAssets, feedLabel, weather }: { previewAssets: 
           <div className="weather-brief__score"><strong>{weather.score}</strong><span>/100</span><small>{weather.mode === "live" ? "实时综合温度" : "行情参考"}</small></div>
           <div className="weather-brief__stats"><span><small>币股温度</small><strong>{weather.stockTemperature} · 广度 {weather.stockBreadth}%</strong></span><span><small>币圈温度</small><strong>{weather.cryptoTemperature} · 广度 {weather.cryptoBreadth}%</strong></span><span><small>FOMO 指数</small><strong>{weather.fomoIndex} · 振幅 {weather.volatility}%</strong></span></div>
         </article>
-        <div className="market-preview">
-          <div className="section-heading"><div><span>市场速览 · {feedLabel}</span><h2>AI 一句话状态</h2></div><Link href="/markets">查看全部资产 <ArrowRight size={16} /></Link></div>
-          <div className="market-preview__rows">
-            {previewAssets.map((asset) => <AssetRow asset={asset} compact isWatched={watchlistIds.includes(asset.id)} key={asset.id} onCalm={() => { window.location.href = `/regret?text=${encodeURIComponent(buildAssetCalmPrompt(asset))}`; }} onExplain={() => { window.location.href = "/markets"; }} onToggleWatchlist={toggleWatchlist} />)}
-          </div>
-        </div>
       </div>
       <aside className="risk-rail">
         <div className="risk-rail__title"><WarningCircle size={21} /><h2>今日上头提醒</h2></div>
@@ -120,9 +158,37 @@ export function HomeDashboard() {
   const { mode } = useAppState();
   const [previewAssets, setPreviewAssets] = useState<MarketAsset[]>(fallbackPreviewAssets);
   const [cryptoAssets, setCryptoAssets] = useState<MarketAsset[]>(cryptoData.slice(0, 4));
+  const [tickerAssets, setTickerAssets] = useState<MarketAsset[]>(cryptoData);
   const [stockAssets, setStockAssets] = useState<MarketAsset[]>(stockData.slice(0, 4));
+  const [newsItems, setNewsItems] = useState<EditorialFeedItem[]>([]);
+  const [tickerTarget, setTickerTarget] = useState<HTMLElement | null>(null);
   const [feedLabel, setFeedLabel] = useState("行情状态检查中");
   const [weather, setWeather] = useState<LiveMarketWeather>(fallbackWeather);
+
+  useEffect(() => {
+    setTickerTarget(document.getElementById("home-top-tickers"));
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    const loadNews = () => {
+      fetch("/api/editorial", { cache: "no-store" })
+        .then((response) => {
+          if (!response.ok) throw new Error("editorial feed unavailable");
+          return response.json() as Promise<EditorialFeedSnapshot>;
+        })
+        .then((snapshot) => {
+          if (active) setNewsItems(snapshot.items);
+        })
+        .catch(() => undefined);
+    };
+    loadNews();
+    const timer = window.setInterval(loadNews, 120_000);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -133,11 +199,13 @@ export function HomeDashboard() {
         const availableStocks = stockFeed.assets;
         const btc = liveCrypto.find((asset) => asset.symbol === "BTC") ?? liveCrypto[0];
         const eth = liveCrypto.find((asset) => asset.symbol === "ETH") ?? liveCrypto[1];
+        const sol = liveCrypto.find((asset) => asset.symbol === "SOL") ?? liveCrypto[2];
         const nvda = availableStocks.find((asset) => asset.symbol.toUpperCase().includes("NVDA")) ?? availableStocks[0];
-        const qqq = availableStocks.find((asset) => asset.symbol.toUpperCase().includes("QQQ")) ?? availableStocks[1];
+        const tsla = availableStocks.find((asset) => asset.symbol.toUpperCase().includes("TSLA")) ?? availableStocks[1];
+        setTickerAssets(liveCrypto);
         setCryptoAssets(liveCrypto.slice(0, 4));
         setStockAssets(availableStocks.slice(0, 4));
-        setPreviewAssets([btc, eth, nvda, qqq].filter((asset): asset is MarketAsset => Boolean(asset)));
+        setPreviewAssets([btc, eth, sol, nvda, tsla].filter((asset): asset is MarketAsset => Boolean(asset)));
         setWeather(buildMarketWeather({ cryptoAssets: liveCrypto, stockAssets: availableStocks, cryptoProviders: cryptoFeed.providers, stockProviders: stockFeed.providers, cryptoMode: cryptoFeed.mode, stockMode: stockFeed.mode, updatedAt: [cryptoFeed.updatedAt, stockFeed.updatedAt].sort().at(-1) }));
         const cryptoSources = cryptoFeed.providers?.filter((provider) => provider.status === "live").length ?? 0;
         const stockSources = stockFeed.providers?.filter((provider) => provider.status === "live").length ?? 0;
@@ -155,8 +223,10 @@ export function HomeDashboard() {
 
   return (
     <>
+      {tickerTarget ? createPortal(<div className="home-top-tickers"><MarketTickerTape assets={tickerAssets} /><NewsTickerTape items={newsItems} /></div>, tickerTarget) : null}
+      <HomeMarketSpotlight assets={previewAssets} feedLabel={feedLabel} weather={weather} />
       <Hero />
-      {mode === "brief" ? <BriefDashboard feedLabel={feedLabel} previewAssets={previewAssets} weather={weather} /> : mode === "lens" ? <LensDashboard previewAssets={previewAssets} weather={weather} /> : <CalmDashboard cryptoAssets={cryptoAssets} stockAssets={stockAssets} weather={weather} />}
+      {mode === "brief" ? <BriefDashboard weather={weather} /> : mode === "lens" ? <LensDashboard previewAssets={previewAssets} weather={weather} /> : <CalmDashboard cryptoAssets={cryptoAssets} stockAssets={stockAssets} weather={weather} />}
       <section className="daily-entry-grid" aria-label="每日内容入口">
         <Link className="daily-entry-card daily-entry-card--hot" href="/hotspots"><span><Newspaper size={24} weight="duotone" /></span><div><small>Daily pulse</small><h2>每日热点</h2><p>三分钟看懂今天真正影响币股、币圈和市场情绪的主线。</p></div><ArrowRight size={18} /></Link>
         <Link className="daily-entry-card" href="/calendar"><span><CalendarCheck size={24} weight="duotone" /></span><div><small>Macro schedule</small><h2>财经日历</h2><p>按北京时间查看央行决议、通胀、就业和增长数据等高影响事件。</p></div><ArrowRight size={18} /></Link>

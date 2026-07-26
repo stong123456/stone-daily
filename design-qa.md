@@ -110,3 +110,18 @@ Final result: PASSED for the implemented UI and interactions. External-provider 
 - Browser QA used 1280 x 720 desktop and 390 x 844 mobile viewports. `/weather`, `/markets`, `/live`, and the homepage had no horizontal overflow and no relevant console errors.
 - Visual evidence: existing system references `audit/2026-07-21/01-home.png` and `audit/2026-07-21/02-markets.png`; final captures `C:\Users\Administrator\AppData\Local\Temp\stone-daily-weather-desktop-final.png`, `C:\Users\Administrator\AppData\Local\Temp\stone-daily-weather-mobile-final.png`, and `C:\Users\Administrator\AppData\Local\Temp\stone-daily-markets-mobile-final.png`.
 - `npm run typecheck`, the Next.js 15.5.20 production build, and `git diff --check` passed.
+
+## 2026-07-26 homepage market-first hierarchy QA
+
+- Accepted implementation reference: `C:\Users\Administrator\.codex\generated_images\019f7982-e28f-7c83-96d1-c114d721083d\exec-0b102b64-b043-46ff-a50f-882562fe21ad.png`.
+- Browser render method: Codex in-app Browser at `1440 × 1024` and `390 × 844`; latest desktop and mobile captures were written to the system temporary directory and inspected with `view_image`.
+- Exact desktop order measured in-browser: dual ticker slot `0–79 px`, Beijing-time/creator strip `79–120 px`, navigation `120–202 px`, live-market command center beginning at `238 px`, secondary brand hero beginning at `693 px`.
+- Layout fidelity: the implementation preserves the reference's newspaper-terminal hierarchy, five-row live table, right-side breadth/temperature/FOMO rail, compact secondary hero, thin borders, open white surfaces, and restrained radii.
+- Typography fidelity: serif display headings remain limited to editorial hierarchy; market headers, values, controls, and captions use the established sans-serif utility scale.
+- Palette fidelity: the first ticker uses the reference navy exchange strip, the news wire stays white, and semantic amber/blue/green/red states match the existing Stone Daily tokens.
+- Container fidelity: the market area stays table-driven rather than becoming a generic card grid; the metric rail uses only three purposeful summaries.
+- Responsive fidelity: mobile keeps two horizontal ticker rows, four immediately visible market rows, compact AI signals and metric cards with no horizontal overflow (`scrollWidth === clientWidth`, 375 px Browser viewport for a requested 390 px outer viewport).
+- Interaction fidelity: brief/lens switching preserved the live-market-first hierarchy, watchlist controls remained interactive, `/markets` and `/live` contained no duplicate ticker, and `/calendar` selected `全部` by default.
+- Above-the-fold copy diff: required labels `涨幅 TOP 20`, `最新 7×24`, `实时行情`, `查看全部行情`, `市场广度`, `情绪温度`, `FOMO 指数`, and the existing three hero actions are present. No new claims, badges, navigation items, or promotional copy were added.
+- Intentional deviation: the generated reference included decorative row sparklines. The homepage omits them because its current aggregate feed does not provide a common candle series for every venue; fake trend lines would conflict with the product's source-transparency rules. The implementation uses live price, change, venue, and symbol-specific AI copy instead.
+- Final Browser console check returned no warnings or errors. No visible P1/P2 mismatch remained after the reference-versus-render `view_image` comparison.

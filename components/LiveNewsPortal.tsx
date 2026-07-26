@@ -10,7 +10,6 @@ import {
   Funnel,
 } from "@phosphor-icons/react";
 import { useEffect, useMemo, useState } from "react";
-import { NewsTickerTape } from "@/components/NewsTickerTape";
 import type { EditorialFeedCategory, EditorialFeedSnapshot } from "@/types/market";
 
 const PAGE_SIZE = 10;
@@ -94,8 +93,6 @@ export function LiveNewsPortal() {
         <div><span>Live market wire</span><h1>7×24 市场快讯</h1><p>独立时间流持续汇总中文财经、央行、监管机构、加密媒体与交易所信息，时间统一为北京时间。</p></div>
         <button className="button button--secondary" disabled={!snapshot && !loadFailed} onClick={() => setRefreshKey((value) => value + 1)} type="button"><ArrowClockwise className={!snapshot && !loadFailed ? "spin" : ""} size={18} />立即刷新</button>
       </header>
-
-      <NewsTickerTape items={snapshot?.items ?? []} />
 
       <section className="live-wire-summary">
         <div><Broadcast size={22} weight="duotone" /><span><strong>{snapshot?.items.length ?? "—"}</strong><small>本轮快讯</small></span></div>

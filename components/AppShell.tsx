@@ -8,6 +8,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const { mode } = useAppState();
   return (
     <div className="app-shell" data-mode={mode}>
+      <div className="home-top-tickers-slot" id="home-top-tickers" />
       <Navbar />
       <div className="app-shell__content">
         <main className="page-canvas">{children}</main>

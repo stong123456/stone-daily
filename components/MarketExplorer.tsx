@@ -9,7 +9,6 @@ import { ExchangeLogo } from "@/components/ExchangeLogo";
 import { MarketTable } from "@/components/MarketTable";
 import { MarketIntelligencePanel } from "@/components/MarketIntelligencePanel";
 import { MarketTemperatureCard } from "@/components/MarketTemperatureCard";
-import { MarketTickerTape } from "@/components/MarketTickerTape";
 import { Watchlist } from "@/components/Watchlist";
 import { expandedCryptoData, expandedStockData, marketUniverse } from "@/data/expandedMarket";
 import { buildAssetCalmPrompt, generateAssetExplanation } from "@/services/aiAnalysis";
@@ -233,8 +232,6 @@ export function MarketExplorer() {
         <div><span>Crypto + tokenized stocks</span><h1>币圈与币股行情</h1><p>搜索加密资产、币股现货、链上币股和币股永续，先分清产品结构，再看价格与风险。</p></div>
         <div className="market-coverage"><Broadcast size={22} weight="duotone" /><div><strong>{cryptoFeed && stockFeed ? `${cryptoFeed.length} 个币圈 + ${stockFeed.length} 个币股行情` : "正在连接币圈与币股行情"}</strong><span>10 个币圈现货源 · 5 个币股产品源 · 单源故障隔离</span></div></div>
       </header>
-
-      <MarketTickerTape assets={cryptoFeed ?? expandedCryptoData} />
 
       <section className="temperature-grid">
         <MarketTemperatureCard detail={`上涨广度 ${weatherSnapshot.stockBreadth}%，按基础标的去重计算。`} label="币股温度" value={weatherSnapshot.stockTemperature} />

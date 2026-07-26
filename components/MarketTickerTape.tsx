@@ -11,7 +11,7 @@ export function MarketTickerTape({ assets, limit = 20 }: { assets: MarketAsset[]
   const loops = [movers, movers];
   return (
     <section aria-label={`去重后的24小时涨幅前 ${movers.length} 名`} className="ticker-tape ticker-tape--market">
-      <strong className="ticker-tape__label">涨幅 TOP {movers.length}</strong>
+      <strong className="ticker-tape__label">涨幅 TOP {limit}</strong>
       <div className="ticker-tape__viewport">
         <div className="ticker-tape__track">
           {loops.flatMap((items, loopIndex) => items.map((asset, index) => (

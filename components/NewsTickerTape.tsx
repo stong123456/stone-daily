@@ -4,10 +4,17 @@ import type { EditorialFeedItem } from "@/types/market";
 
 export function NewsTickerTape({ items }: { items: EditorialFeedItem[] }) {
   const latest = items.slice(0, 12);
-  if (!latest.length) return null;
+  if (!latest.length) {
+    return (
+      <section aria-label="最新7×24快讯加载状态" className="ticker-tape ticker-tape--news">
+        <strong className="ticker-tape__label">最新 7×24</strong>
+        <div className="ticker-tape__viewport"><div className="ticker-tape__track ticker-tape__track--news"><span className="ticker-tape__news-item"><i /><span>正在获取今日实时快讯…</span></span></div></div>
+      </section>
+    );
+  }
   return (
     <section aria-label="最新7×24快讯流动播报" className="ticker-tape ticker-tape--news">
-      <strong className="ticker-tape__label">最新快讯</strong>
+      <strong className="ticker-tape__label">最新 7×24</strong>
       <div className="ticker-tape__viewport">
         <div className="ticker-tape__track ticker-tape__track--news">
           {[latest, latest].flatMap((group, loopIndex) => group.map((item, index) => (
