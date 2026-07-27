@@ -14,7 +14,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useAppState } from "@/components/AppStateProvider";
 import { buildDailyHotspots } from "@/services/editorialRanking";
-import type { EditorialFeedSnapshot, HotspotCategory } from "@/types/market";
+import type { EditorialFeedItem, EditorialFeedSnapshot, HotspotCategory } from "@/types/market";
 
 const categories: Array<"全部" | HotspotCategory> = ["全部", "宏观", "币股", "币圈", "科技", "监管"];
 
@@ -33,6 +33,42 @@ const confidenceLabels: Record<string, string> = {
   单一来源: "Single source",
   待复核: "Needs review",
 };
+
+const US_STOCK_ASSETS = new Set([
+  "AAPL",
+  "AMD",
+  "AMZN",
+  "COIN",
+  "GOOG",
+  "GOOGL",
+  "META",
+  "MSFT",
+  "MSTR",
+  "NFLX",
+  "NVDA",
+  "SPY",
+  "TSLA",
+]);
+
+const US_STOCK_OR_TOKENIZED_MARKER =
+  /tokenized[-\s]?(?:stock|equity)|xstocks?|rtoken|stock token|币股|代币化(?:美股|股票)|美股|纳斯达克|纽交所|标普|道琼斯|华尔街|\b(?:U\.?S\.?|US)\s+(?:stock|equity|share)s?\b|\b(?:NYSE|NASDAQ|S&P 500|Dow Jones)\b/i;
+
+function isShareableMarketStory(item: EditorialFeedItem) {
+  if (item.category === "币圈") return true;
+  if (item.category !== "币股") return false;
+  const text = `${item.title} ${item.summary}`;
+  return US_STOCK_OR_TOKENIZED_MARKER.test(text) || item.relatedAssets.some((asset) => US_STOCK_ASSETS.has(asset));
+}
+
+function compactShareHeadline(value: string, language: "zh" | "en") {
+  const normalized = value.replace(/\s+/g, " ").trim();
+  const bracketHeadline = normalized.match(/^【([^】]+)】/)?.[1];
+  const firstSentence = normalized.split(/[。！？!?]/, 1)[0];
+  const headline = (bracketHeadline || firstSentence || normalized).trim();
+  const limit = language === "zh" ? 26 : 56;
+  const characters = Array.from(headline);
+  return characters.length > limit ? `${characters.slice(0, limit).join("")}…` : headline;
+}
 
 function matchesLanguage(value: string, language: "zh" | "en") {
   const containsHan = /\p{Script=Han}/u.test(value);
@@ -118,6 +154,10 @@ export function HotspotsPortal() {
   );
   const rankedHotspots = useMemo(() => buildDailyHotspots(languageItems, 5, language), [language, languageItems]);
   const dailyItems = rankedHotspots;
+  const shareItems = useMemo(
+    () => buildDailyHotspots(languageItems.filter(isShareableMarketStory), 3, language),
+    [language, languageItems],
+  );
   const hotspots = useMemo(
     () => category === "全部" ? dailyItems : dailyItems.filter((item) => item.category === category),
     [category, dailyItems],
@@ -128,14 +168,14 @@ export function HotspotsPortal() {
     58 + (snapshot?.items.filter((item) => item.urgency !== "常规").length ?? 0) * 3,
   );
   const shareText = useMemo(() => {
-    const titles = dailyItems.slice(0, 3).map((item) => item.title);
+    const titles = shareItems.map((item) => compactShareHeadline(item.title, language));
     const digest = titles.length > 0
       ? titles.map((title, index) => `${index + 1}. ${title}`).join("\n")
-      : isEnglish ? "Live sources are syncing. Refresh shortly for today's themes." : "实时信息源正在同步，请稍后刷新查看今日主线。";
+      : isEnglish ? "Crypto and tokenized-stock sources are syncing. Check back shortly." : "币圈与币股信息源正在同步，请稍后再看。";
     return isEnglish
-      ? `Stone Daily · Daily Pulse | ${todayLabel}\n${digest}\n\nSources are preserved and facts are separated from inference. Information only, not investment advice.`
-      : `Stone Daily 每日热点｜${todayLabel}\n${digest}\n\n来源已保留，事实与推测分开。仅作信息整理，不构成投资建议。`;
-  }, [dailyItems, isEnglish, todayLabel]);
+      ? `Stone Daily · Crypto + Tokenized Stocks | ${todayLabel}\n${digest}\n\nSource-linked · Not investment advice.`
+      : `Stone Daily｜币圈＋币股热点｜${todayLabel}\n${digest}\n\n来源可回溯｜不构成投资建议`;
+  }, [isEnglish, language, shareItems, todayLabel]);
 
   const copyDigest = async () => {
     const success = await writeClipboardText(shareText);
@@ -152,8 +192,8 @@ export function HotspotsPortal() {
       <header className="page-header page-header--inline editorial-header">
         <div><span>Daily pulse</span><h1>{isEnglish ? "Daily Pulse" : "每日热点"}</h1><p>{isEnglish ? "Rebuilt every day in Beijing time from multiple sources, then deduplicated, clustered and ranked with original links preserved." : "每天按北京时间重新读取多源信息、去重聚类并排序；每条内容都保留原始来源。"}</p></div>
         <div className="editorial-actions">
-          <button className="button button--secondary" onClick={copyDigest} type="button">{copied ? <CheckCircle size={18} /> : <Copy size={18} />}{copied ? (isEnglish ? "Copied" : "已复制") : copyFailed ? (isEnglish ? "Copy failed" : "复制失败") : (isEnglish ? "Copy today's digest" : "复制今日摘要")}</button>
-          <a className="button button--primary" href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}`} rel="noreferrer" target="_blank"><ShareNetwork size={18} />{isEnglish ? "Share on X" : "分享到 X"}</a>
+          <button className="button button--secondary" onClick={copyDigest} type="button">{copied ? <CheckCircle size={18} /> : <Copy size={18} />}{copied ? (isEnglish ? "Copied" : "已复制") : copyFailed ? (isEnglish ? "Copy failed" : "复制失败") : (isEnglish ? "Copy crypto + stocks" : "复制币圈＋币股摘要")}</button>
+          <a className="button button--primary" href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}`} rel="noreferrer" target="_blank"><ShareNetwork size={18} />{isEnglish ? "Share crypto + stocks" : "分享币圈＋币股"}</a>
         </div>
       </header>
 
