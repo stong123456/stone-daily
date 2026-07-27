@@ -1,13 +1,17 @@
-import { Gauge, ThermometerSimple } from "@phosphor-icons/react/dist/ssr";
+"use client";
 
-function getLabel(value: number) {
-  if (value < 30) return "冷静";
-  if (value < 55) return "正常";
-  if (value < 75) return "偏热";
-  return "过热";
+import { Gauge, ThermometerSimple } from "@phosphor-icons/react";
+import { useAppState } from "@/components/AppStateProvider";
+
+function getLabel(value: number, isEnglish: boolean) {
+  if (value < 30) return isEnglish ? "Calm" : "冷静";
+  if (value < 55) return isEnglish ? "Normal" : "正常";
+  if (value < 75) return isEnglish ? "Warm" : "偏热";
+  return isEnglish ? "Overheated" : "过热";
 }
 
 export function MarketTemperatureCard({ label, value, detail, kind = "temperature" }: { label: string; value: number; detail: string; kind?: "temperature" | "fomo" }) {
+  const { language } = useAppState();
   const Icon = kind === "fomo" ? Gauge : ThermometerSimple;
   return (
     <section className="temperature-card">
@@ -15,7 +19,7 @@ export function MarketTemperatureCard({ label, value, detail, kind = "temperatur
         <span className="temperature-card__icon"><Icon aria-hidden size={21} weight="duotone" /></span>
         <div>
           <p>{label}</p>
-          <strong>{getLabel(value)}</strong>
+          <strong>{getLabel(value, language === "en")}</strong>
         </div>
         <span className="temperature-card__value">{value}<small>/100</small></span>
       </div>

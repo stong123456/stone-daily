@@ -2,6 +2,7 @@
 
 import { ArrowsLeftRight, CaretDown, ChartLine, Database, Pulse, Waveform } from "@phosphor-icons/react";
 import { useEffect, useMemo, useState } from "react";
+import { useAppState } from "@/components/AppStateProvider";
 import { formatCompact, formatPrice } from "@/services/format";
 import type { MarketCandle, MarketIntelligence, MarketSpread, StreamingSummary } from "@/types/market";
 
@@ -21,6 +22,8 @@ function chartPath(candles: MarketCandle[]) {
 }
 
 export function MarketIntelligencePanel({ spreads, streaming }: { spreads: MarketSpread[]; streaming?: StreamingSummary }) {
+  const { language } = useAppState();
+  const en = language === "en";
   const [expanded, setExpanded] = useState(false);
   const [symbol, setSymbol] = useState("BTC");
   const [data, setData] = useState<MarketIntelligence | null>(null);
@@ -55,40 +58,40 @@ export function MarketIntelligencePanel({ spreads, streaming }: { spreads: Marke
   return (
     <details className="market-intelligence market-intelligence--compact" onToggle={(event) => setExpanded(event.currentTarget.open)} open={expanded}>
       <summary className="market-intelligence__summary">
-        <span className="market-intelligence__summary-title"><Pulse size={18} weight="duotone" /><span><small>专业雷达</small><strong>跨所价差与衍生品</strong></span></span>
-        <span className="market-intelligence__summary-metric"><small>{selectedSpread?.symbol ?? symbol} 跨所价差</small><strong>{selectedSpread ? `${selectedSpread.spreadPct.toFixed(3)}%` : "等待多源报价"}</strong></span>
-        <span className="market-intelligence__summary-metric"><small>行情连接</small><strong>{streaming ? `秒级流 · ${streaming.lagMs}ms` : "REST 快照"}</strong></span>
-        <span className="market-intelligence__summary-toggle">{expanded ? "收起" : "展开"}<CaretDown size={15} /></span>
+        <span className="market-intelligence__summary-title"><Pulse size={18} weight="duotone" /><span><small>{en ? "Professional radar" : "专业雷达"}</small><strong>{en ? "Cross-venue spreads & derivatives" : "跨所价差与衍生品"}</strong></span></span>
+        <span className="market-intelligence__summary-metric"><small>{selectedSpread?.symbol ?? symbol} {en ? "cross-venue spread" : "跨所价差"}</small><strong>{selectedSpread ? `${selectedSpread.spreadPct.toFixed(3)}%` : (en ? "Waiting for multiple feeds" : "等待多源报价")}</strong></span>
+        <span className="market-intelligence__summary-metric"><small>{en ? "Market connection" : "行情连接"}</small><strong>{streaming ? `${en ? "Second-level stream" : "秒级流"} · ${streaming.lagMs}ms` : (en ? "REST snapshot" : "REST 快照")}</strong></span>
+        <span className="market-intelligence__summary-toggle">{expanded ? (en ? "Collapse" : "收起") : (en ? "Expand" : "展开")}<CaretDown size={15} /></span>
       </summary>
       <div className="market-intelligence__body">
         <div className="market-intelligence__header">
-          <div><span><Pulse size={17} weight="duotone" /> Professional radar</span><h2>跨所价差与衍生品雷达</h2><p>价格、资金费率和持仓量都保留交易所口径，不做不可靠的简单相加。</p></div>
-          <div className="market-intelligence__symbols" aria-label="专业数据资产">
+          <div><span><Pulse size={17} weight="duotone" /> Professional radar</span><h2>{en ? "Cross-venue spread & derivatives radar" : "跨所价差与衍生品雷达"}</h2><p>{en ? "Prices, funding and open interest retain each venue's own methodology and are never combined through unreliable simple sums." : "价格、资金费率和持仓量都保留交易所口径，不做不可靠的简单相加。"}</p></div>
+          <div className="market-intelligence__symbols" aria-label={en ? "Professional data assets" : "专业数据资产"}>
             {symbols.map((item) => <button aria-pressed={symbol === item} key={item} onClick={() => setSymbol(item)} type="button">{item}</button>)}
           </div>
         </div>
 
         <div className="market-intelligence__grid">
           <article className="market-chart-card">
-            <div className="market-card-heading"><span><ChartLine size={17} />{symbol} · 1小时 K 线</span><small>{data?.candleVenue ?? "等待官方数据"}</small></div>
-            {path ? <svg aria-label={`${symbol} 最近 24 小时价格走势`} preserveAspectRatio="none" role="img" viewBox="0 0 600 160"><defs><linearGradient id="market-area" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stopColor="currentColor" stopOpacity=".2"/><stop offset="100%" stopColor="currentColor" stopOpacity="0"/></linearGradient></defs><path d={`${path} L600,160 L0,160 Z`} fill="url(#market-area)"/><path d={path} fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="3" vectorEffect="non-scaling-stroke"/></svg> : <div className="market-radar-empty">{loading ? "正在读取 K 线…" : error ? "专业数据源暂不可用" : "暂无足够 K 线"}</div>}
-            <div className="market-chart-card__footer"><span>{data?.candles.length ?? 0} 根 K 线</span><strong>标记价跨所差 {data ? data.markSpreadPct.toFixed(3) : "—"}%</strong></div>
+            <div className="market-card-heading"><span><ChartLine size={17} />{symbol} · {en ? "1-hour candles" : "1小时 K 线"}</span><small>{data?.candleVenue ?? (en ? "Waiting for official data" : "等待官方数据")}</small></div>
+            {path ? <svg aria-label={en ? `${symbol} price path over the latest 24 hours` : `${symbol} 最近 24 小时价格走势`} preserveAspectRatio="none" role="img" viewBox="0 0 600 160"><defs><linearGradient id="market-area" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stopColor="currentColor" stopOpacity=".2"/><stop offset="100%" stopColor="currentColor" stopOpacity="0"/></linearGradient></defs><path d={`${path} L600,160 L0,160 Z`} fill="url(#market-area)"/><path d={path} fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="3" vectorEffect="non-scaling-stroke"/></svg> : <div className="market-radar-empty">{loading ? (en ? "Loading candles…" : "正在读取 K 线…") : error ? (en ? "Professional feed unavailable" : "专业数据源暂不可用") : (en ? "Not enough candles" : "暂无足够 K 线")}</div>}
+            <div className="market-chart-card__footer"><span>{data?.candles.length ?? 0} {en ? "candles" : "根 K 线"}</span><strong>{en ? "Mark-price spread" : "标记价跨所差"} {data ? data.markSpreadPct.toFixed(3) : "—"}%</strong></div>
           </article>
 
           <article className="market-spread-card">
-            <div className="market-card-heading"><span><ArrowsLeftRight size={17} />现货跨所价差</span><small>{selectedSpread ? `${selectedSpread.venueCount} 个交易所` : "等待多源报价"}</small></div>
-            {selectedSpread ? <><strong>{selectedSpread.symbol}<em>{selectedSpread.spreadPct.toFixed(3)}%</em></strong><div><span>低价 · {selectedSpread.lowVenue}<b>{formatPrice(selectedSpread.lowPrice)}</b></span><span>高价 · {selectedSpread.highVenue}<b>{formatPrice(selectedSpread.highPrice)}</b></span></div></> : <div className="market-radar-empty">暂无可比较的高流动性报价</div>}
-            <p>展示价差不代表可套利；手续费、深度、充提状态和延迟都会改变结果。</p>
+            <div className="market-card-heading"><span><ArrowsLeftRight size={17} />{en ? "Spot cross-venue spread" : "现货跨所价差"}</span><small>{selectedSpread ? `${selectedSpread.venueCount} ${en ? "venues" : "个交易所"}` : (en ? "Waiting for multiple feeds" : "等待多源报价")}</small></div>
+            {selectedSpread ? <><strong>{selectedSpread.symbol}<em>{selectedSpread.spreadPct.toFixed(3)}%</em></strong><div><span>{en ? "Low" : "低价"} · {selectedSpread.lowVenue}<b>{formatPrice(selectedSpread.lowPrice)}</b></span><span>{en ? "High" : "高价"} · {selectedSpread.highVenue}<b>{formatPrice(selectedSpread.highPrice)}</b></span></div></> : <div className="market-radar-empty">{en ? "No comparable high-liquidity quotes" : "暂无可比较的高流动性报价"}</div>}
+            <p>{en ? "A displayed spread is not an arbitrage opportunity. Fees, depth, deposits, withdrawals and latency change the outcome." : "展示价差不代表可套利；手续费、深度、充提状态和延迟都会改变结果。"}</p>
           </article>
 
           <article className="market-stream-card">
-            <div className="market-card-heading"><span><Waveform size={17} />流式行情</span><small>{streaming ? `${streaming.lagMs}ms 延迟` : "REST 快照"}</small></div>
-            <strong>{streaming ? `${streaming.quoteCount} 条` : "待连接"}<small>{streaming?.venues.join(" · ") ?? "配置 Railway 流服务后启用"}</small></strong>
-            <div><Database size={17} /><span>Railway 流网关直接推送；Redis/KV 仅作为可选的短时回退层。</span></div>
+            <div className="market-card-heading"><span><Waveform size={17} />{en ? "Streaming quotes" : "流式行情"}</span><small>{streaming ? `${streaming.lagMs}ms ${en ? "lag" : "延迟"}` : (en ? "REST snapshot" : "REST 快照")}</small></div>
+            <strong>{streaming ? `${streaming.quoteCount} ${en ? "quotes" : "条"}` : (en ? "Waiting to connect" : "待连接")}<small>{streaming?.venues.join(" · ") ?? (en ? "Enabled when the Railway stream is configured" : "配置 Railway 流服务后启用")}</small></strong>
+            <div><Database size={17} /><span>{en ? "The Railway gateway pushes directly; Redis/KV remains an optional short-lived fallback." : "Railway 流网关直接推送；Redis/KV 仅作为可选的短时回退层。"}</span></div>
           </article>
         </div>
 
-        {data?.derivatives.length ? <div className="derivative-metrics">{data.derivatives.map((metric) => <article key={metric.venue}><span>{metric.venue}</span><strong>{formatPrice(metric.markPrice)}</strong><dl><div><dt>资金费率</dt><dd className={metric.fundingRate >= 0 ? "is-positive" : "is-negative"}>{(metric.fundingRate * 100).toFixed(4)}%</dd></div><div><dt>持仓名义价值</dt><dd>{metric.openInterestValue ? formatCompact(metric.openInterestValue) : "—"}</dd></div></dl></article>)}</div> : null}
+        {data?.derivatives.length ? <div className="derivative-metrics">{data.derivatives.map((metric) => <article key={metric.venue}><span>{metric.venue}</span><strong>{formatPrice(metric.markPrice)}</strong><dl><div><dt>{en ? "Funding rate" : "资金费率"}</dt><dd className={metric.fundingRate >= 0 ? "is-positive" : "is-negative"}>{(metric.fundingRate * 100).toFixed(4)}%</dd></div><div><dt>{en ? "Open-interest notional" : "持仓名义价值"}</dt><dd>{metric.openInterestValue ? formatCompact(metric.openInterestValue) : "—"}</dd></div></dl></article>)}</div> : null}
       </div>
     </details>
   );

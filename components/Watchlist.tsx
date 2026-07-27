@@ -3,6 +3,7 @@
 import { Star } from "@phosphor-icons/react";
 import type { MarketAsset } from "@/types/market";
 import { AssetRow } from "@/components/AssetRow";
+import { useAppState } from "@/components/AppStateProvider";
 
 export function Watchlist({ assets, loadingId, onExplain, onCalm, onToggleWatchlist }: {
   assets: MarketAsset[];
@@ -11,12 +12,14 @@ export function Watchlist({ assets, loadingId, onExplain, onCalm, onToggleWatchl
   onCalm: (asset: MarketAsset) => void;
   onToggleWatchlist: (id: string) => void;
 }) {
+  const { language } = useAppState();
+  const en = language === "en";
   if (assets.length === 0) {
     return (
       <div className="empty-state">
         <span><Star aria-hidden size={26} weight="duotone" /></span>
-        <h3>你还没有添加自选资产</h3>
-        <p>回到币圈或币股，点一下星标。只收下你真正想持续观察的资产。</p>
+        <h3>{en ? "Your watchlist is empty" : "你还没有添加自选资产"}</h3>
+        <p>{en ? "Return to crypto or tokenized stocks and select the star. Keep only assets you genuinely want to follow." : "回到币圈或币股，点一下星标。只收下你真正想持续观察的资产。"}</p>
       </div>
     );
   }

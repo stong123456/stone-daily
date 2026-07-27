@@ -1,3 +1,5 @@
+"use client";
+
 import {
   ArrowRight,
   Bomb,
@@ -18,9 +20,10 @@ import {
   ShieldCheck,
   Sparkle,
   WarningCircle,
-} from "@phosphor-icons/react/dist/ssr";
+} from "@phosphor-icons/react";
 import Image from "next/image";
 import Link from "next/link";
+import { useAppState } from "@/components/AppStateProvider";
 
 const toc = [
   ["overview", "01 · 产品定位"],
@@ -129,7 +132,78 @@ const faqs = [
   ["可以把 Stone Daily 当投资建议吗？", "不可以。本站只帮助理解信息、识别风险和延迟冲动；任何交易与资金决定都需要用户自行核对并承担结果。"],
 ] as const;
 
+const tocEn = [
+  ["overview", "01 · Positioning"], ["workflow", "02 · Workflow"], ["features", "03 · Features"], ["markets", "04 · Product types"], ["sources", "05 · Data architecture"], ["ai", "06 · AI & calm tools"], ["modes", "07 · UI modes"], ["status", "08 · Data states"], ["privacy", "09 · Privacy"], ["faq", "10 · FAQ"],
+] as const;
+
+const featuresEn = [
+  { href: "/markets", eyebrow: "Market terminal", title: "One-stop live markets", description: "Aggregate crypto spot and tokenized-stock products with search, venue buttons, sector filters, gain sorting and watchlists.", detail: "Quotes remain venue-specific; incompatible volume fields are never presented as a global total.", Icon: ChartLineUp },
+  { href: "/hotspots", eyebrow: "Daily briefing", title: "Daily Pulse", description: "Rebuild same-day stories in Beijing time and separate facts, relevance, risk and original sources.", detail: "Attention is not a recommendation, and old announcements are not presented as today's news.", Icon: Newspaper },
+  { href: "/live", eyebrow: "Live wire", title: "7×24 market wire", description: "A standalone feed for global, macro, tokenized-stock, crypto, technology and regulatory stories.", detail: "Filter by category and source, paginate, refresh and inspect every provider's health.", Icon: Broadcast },
+  { href: "/calendar", eyebrow: "Macro schedule", title: "Economic calendar", description: "Beijing-time events with region, importance, actual, forecast and previous values.", detail: "Defaults to all events and distinguishes live schedules from reviewed catalogues.", Icon: CalendarCheck },
+  { href: "/today", eyebrow: "Market memory", title: "On This Day", description: "Retrieve traceable events for today's month and day, ranked for market, institutional and technology relevance.", detail: "If no reliable result exists, the page shows an unavailable state instead of a hard-coded story.", Icon: CalendarDots },
+  { href: "/weather", eyebrow: "Market weather", title: "Market weather", description: "Turn breadth, volatility, FOMO and feed health into an intuitive whole-market reading.", detail: "Recomputed at least once per minute from the same market data used across the site.", Icon: CloudSun },
+  { href: "/detox", eyebrow: "Noise detox", title: "Hype detox", description: "Separate a post, headline or pitch into facts, inference, emotion, missing evidence and checks.", detail: "Designed to reduce noise, not predict direction.", Icon: Bomb },
+  { href: "/regret", eyebrow: "Pause before action", title: "Decision pause button", description: "Run a future-regret check before a transfer, approval, chase or major decision.", detail: "Pause records remain on the current device and can be reviewed or deleted.", Icon: FirstAid },
+] as const;
+
+const productRowsEn = [
+  ["Crypto spot", "Exchange spot quote", "crypto-spot", "Venue, liquidity, project and market volatility risk"],
+  ["Tokenized-stock spot", "Token linked to a stock or ETF", "tokenized-spot", "Does not automatically grant registered-share, voting or brokerage rights"],
+  ["Onchain tokenized stock", "Onchain token and backing structure", "tokenized-onchain", "Verify contract, custody, attestation, redemption and onchain liquidity"],
+  ["Tokenized-stock perpetual", "Perpetual derivative tracking a stock-linked product", "tokenized-perpetual", "Funding, margin, leverage and liquidation risk; not spot ownership"],
+] as const;
+
+const statusRowsEn = [
+  ["Live", "A valid quote or story was just received from an official public endpoint.", "live"],
+  ["Second-level stream", "The page is receiving short-interval overlays from the shared Railway stream.", "stream"],
+  ["Cached", "The current endpoint is unavailable; the last successful snapshot and time are shown.", "cached"],
+  ["Catalogue", "Product or event existence is confirmed without pretending there is a live price.", "catalog"],
+  ["Unavailable", "The request failed, is region-limited or returned no valid result.", "unavailable"],
+  ["Demo / fallback", "Used only to keep the interface understandable; not a current market fact.", "fallback"],
+] as const;
+
+const faqsEn = [
+  ["Is Stone Daily a broker or exchange?", "No. Stone Daily is a public market-information portal. It does not custody funds, trade for users or execute orders."],
+  ["What does “tokenized stocks” mean here?", "The site covers crypto-native tokenized-stock spot, onchain stock tokens and stock-linked perpetuals—not ordinary shares in a NYSE or Nasdaq brokerage account."],
+  ["Why can one asset appear on several rows?", "Each row is a venue or product structure. Price, volume, hours and holder rights can differ, so they are not forced into one artificial global price."],
+  ["Why does Kraken sometimes show spot and sometimes perpetuals?", "Kraken xStocks spot books depend on region and eligibility. When spot is not visible, public xStocks Futures data may remain available and is labelled as perpetual."],
+  ["Does the AI predict price?", "No. It explains the observed move, possible context, missing evidence and product-specific risk without turning correlation into certain cause."],
+  ["Are watchlists and pause records uploaded?", "No account system is used. Language, UI mode, watchlists and pause records are stored in this browser's localStorage and do not sync across devices."],
+  ["Why can prices differ from an exchange app?", "Network lag, snapshot timing, quote currency, mark price and last-trade price can differ. Read source, product type, status and update time together."],
+  ["Can I treat Stone Daily as investment advice?", "No. It supports information literacy, risk recognition and slower decisions. You remain responsible for every financial action."],
+] as const;
+
+function EnglishProductDocumentation() {
+  return (
+    <article className="product-docs">
+      <header className="product-docs__hero">
+        <div className="product-docs__hero-copy"><span>Stone Daily product guide</span><h1>Complete Product Guide</h1><p>A guide for everyday users, creators and data readers: what Stone Daily does, where its information comes from, how tokenized-stock products differ and what the product will never do.</p><div className="product-docs__actions"><Link className="button button--primary" href="/markets">Open live markets <ArrowRight size={17} /></Link><a className="button button--secondary" href="#features">Browse every feature</a></div></div>
+        <div className="product-docs__identity"><Image alt="Stone Daily brand mark" height={112} priority src="/assets/stone-daily-mark.png" width={112} /><div><small>Current guide</small><strong>Final portal edition</strong><span>Updated 2026-07-27</span></div><dl><div><dt>Crypto sources</dt><dd>10</dd></div><div><dt>Tokenized-stock sources</dt><dd>5</dd></div><div><dt>Public feature pages</dt><dd>9+</dd></div></dl></div>
+      </header>
+      <div className="product-docs__layout">
+        <aside className="product-docs__toc"><span>Contents</span><nav aria-label="Product guide contents">{tocEn.map(([href, label]) => <a href={`#${href}`} key={href}>{label}</a>)}</nav><div><ShieldCheck size={18} weight="duotone" /><p><strong>Core boundary</strong><span>No trade calls, execution or promised returns.</span></p></div></aside>
+        <div className="product-docs__content">
+          <section className="docs-section" id="overview"><div className="docs-section__heading"><span>01 · Overview</span><h2>Product positioning</h2></div><p className="docs-lead">Stone Daily is an AI-assisted crypto and tokenized-stock market portal for everyday users. It reorganizes information scattered across exchanges, financial wires, macro calendars and historical archives into one understandable, verifiable and calmer public entry point.</p><div className="docs-principle-grid"><article><GlobeHemisphereEast size={24} weight="duotone" /><h3>One place, clear boundaries</h3><p>Markets, news, calendars and risk tools live together while venues and product structures remain distinct.</p></article><article><Brain size={24} weight="duotone" /><h3>Translate markets, not destiny</h3><p>AI explains observed data and possible context while preserving uncertainty, sources and next checks.</p></article><article><ShieldCheck size={24} weight="duotone" /><h3>Protect understanding first</h3><p>The design supports information literacy, risk education and slower decisions—not higher trading frequency.</p></article></div><div className="docs-notice"><Info size={20} /><p><strong>Who it is for:</strong> people new to tokenized stocks, multi-venue market watchers, fast market readers and public creators who need daily source-backed themes.</p></div></section>
+          <section className="docs-section" id="workflow"><div className="docs-section__heading"><span>02 · Workflow</span><h2>Recommended workflow</h2></div><div className="docs-flow"><article><span>01</span><div><strong>Start with market weather</strong><p>Use breadth, volatility and FOMO to see whether the market is calm, warm or riskier.</p></div></article><article><span>02</span><div><strong>Open live markets</strong><p>Find the venue and product type: spot, onchain token or perpetual.</p></div></article><article><span>03</span><div><strong>Add today's context</strong><p>Use Daily Pulse, the 7×24 wire, calendar and history.</p></div></article><article><span>04</span><div><strong>Pause before action</strong><p>Use AI briefs, Hype Detox or the Decision Pause Button.</p></div></article></div></section>
+          <section className="docs-section" id="features"><div className="docs-section__heading"><span>03 · Feature map</span><h2>Complete feature map</h2><p>Every feature is public and requires no personal account.</p></div><div className="docs-feature-grid">{featuresEn.map(({ href, eyebrow, title, description, detail, Icon }) => <Link className="docs-feature-card" href={href} key={href}><span><Icon size={23} weight="duotone" /></span><small>{eyebrow}</small><h3>{title}</h3><p>{description}</p><em>{detail}</em><b>Open feature <ArrowRight size={14} /></b></Link>)}</div><div className="docs-feature-note"><Pulse size={20} /><p><strong>Two global moving tapes:</strong> every public page includes a deduplicated 24-hour Top 20 gainers tape and the latest 7×24 wire. Hover or reduced-motion preferences pause animation.</p></div></section>
+          <section className="docs-section" id="markets"><div className="docs-section__heading"><span>04 · Product taxonomy</span><h2>Markets and product types</h2><p>Looking like the same stock does not create the same holder rights.</p></div><div className="docs-table-wrap"><table className="docs-table"><thead><tr><th>Category</th><th>What the row represents</th><th>Internal type</th><th>Key risk</th></tr></thead><tbody>{productRowsEn.map((row) => <tr key={row[0]}>{row.map((cell) => <td key={cell}>{cell}</td>)}</tr>)}</tbody></table></div><div className="docs-split-cards"><article><h3>Crypto spot coverage</h3><p>Binance, OKX, Bitget, Bybit, HTX, Kraken, KuCoin, Gate, MEXC and Coinbase. Each venue keeps its own price and volume.</p></article><article><h3>Tokenized-stock coverage</h3><p>Bitget rToken, Bybit xStocks spot, Kraken xStocks spot/perpetuals, OKX stock perpetuals and Binance Web3 / Ondo onchain catalogues.</p></article></div><div className="docs-warning"><WarningCircle size={21} /><p><strong>Important:</strong> tokenized-stock products are not direct NYSE or Nasdaq shares. Similar symbols or prices do not automatically create traditional shareholder rights.</p></div></section>
+          <section className="docs-section" id="sources"><div className="docs-section__heading"><span>05 · Data architecture</span><h2>Sources and update mechanics</h2></div><div className="docs-architecture"><article><Database size={24} weight="duotone" /><div><strong>Official public feeds first</strong><p>Each venue adapter has independent requests, timeouts and visible health.</p></div></article><article><Broadcast size={24} weight="duotone" /><div><strong>Shared second-level stream</strong><p>A long-running Railway gateway supplies short-interval SSE quotes; snapshots and optional Redis/KV provide fallback.</p></div></article><article><CheckCircle size={24} weight="duotone" /><div><strong>Deduplicate without false aggregation</strong><p>Rankings deduplicate canonical symbols while market tables retain venue rows and incompatible volumes remain separate.</p></div></article></div><div className="docs-provider-grid"><article><h3>News and 7×24</h3><p>Sina Finance, the Federal Reserve, ECB, BOJ, SEC, Cointelegraph, Decrypt and Kraken Blog.</p></article><article><h3>Economic calendar</h3><p>BLS live schedules; Fed, ECB and BEA catalogues; optional Trading Economics when a real server-side key is configured.</p></article><article><h3>Historical archives</h3><p>Chinese public archives and encyclopedias by Beijing month/day, with original links preserved.</p></article></div></section>
+          <section className="docs-section" id="ai"><div className="docs-section__heading"><span>06 · AI and risk</span><h2>AI briefs and calm tools</h2></div><p className="docs-lead docs-lead--small">Asset explanations use symbol, venue, product type, move, activity and context. They do not reuse one generic paragraph for every token.</p><div className="docs-ai-grid"><article><Sparkle size={22} /><h3>AI brief</h3><p>Explain what happened, possible context, missing evidence and product-specific risk.</p></article><article><FirstAid size={22} /><h3>Help me pause</h3><p>Move attention from immediate action to liquidity, source, position size and worst-case outcomes.</p></article><article><Bomb size={22} /><h3>Hype detox</h3><p>Separate marketing language from fact, inference, unverified claims and a check list.</p></article></div><div className="docs-boundaries"><h3>Four AI boundaries</h3><ul><li><CheckCircle size={16} />No correlation presented as certain cause</li><li><CheckCircle size={16} />No buy, sell or position-size instruction</li><li><CheckCircle size={16} />No promised return or accuracy</li><li><CheckCircle size={16} />Always surface source, structure and regional limits</li></ul></div></section>
+          <section className="docs-section" id="modes"><div className="docs-section__heading"><span>07 · Interface modes</span><h2>Three UI modes</h2><p>All modes share the same product, routes and data; only information framing changes.</p></div><div className="docs-mode-grid"><article data-mode="brief"><small>Brief</small><h3>Brief mode</h3><p>Fast reading with today's overview, market weather and priority information.</p></article><article data-mode="lens"><small>Lens</small><h3>Lens mode</h3><p>Higher density for changes, metrics, risk and cross-market context.</p></article><article data-mode="calm"><small>Calm</small><h3>Calm mode</h3><p>Softer visual stimulation and decision-friction prompts.</p></article></div><p className="docs-caption">The choice is stored in this browser and never changes route or data access.</p></section>
+          <section className="docs-section" id="status"><div className="docs-section__heading"><span>08 · Data states</span><h2>Data-state definitions</h2></div><div className="docs-status-list">{statusRowsEn.map(([name, description, status]) => <article key={name}><span data-status={status}>{name}</span><p>{description}</p></article>)}</div><div className="docs-notice"><Info size={20} /><p>Read price, change, source, update time and product type together. One number is not enough to know whether it is current, tradable or available in your region.</p></div></section>
+          <section className="docs-section" id="privacy"><div className="docs-section__heading"><span>09 · Privacy</span><h2>Privacy and local data</h2></div><div className="docs-privacy-card"><LockKey size={28} weight="duotone" /><div><h3>No account is required</h3><p>Language, UI mode, watchlists and pause records use browser localStorage on the current device. They do not sync automatically and can be deleted in the site or browser.</p></div></div><ul className="docs-check-list"><li><CheckCircle size={17} />No custody of user funds</li><li><CheckCircle size={17} />No exchange API keys stored</li><li><CheckCircle size={17} />No trades executed for users</li><li><CheckCircle size={17} />External sites apply their own privacy policies</li></ul></section>
+          <section className="docs-section" id="faq"><div className="docs-section__heading"><span>10 · FAQ</span><h2>Frequently asked questions</h2></div><div className="docs-faq">{faqsEn.map(([question, answer]) => <details key={question}><summary>{question}<span>＋</span></summary><p>{answer}</p></details>)}</div></section>
+          <section className="docs-closing"><div><span>Markets. Insights. Every day.</span><h2>Understand markets—and protect your judgment.</h2><p>Stone Daily does not decide for you. It aims to add evidence and boundaries before impulse becomes action.</p></div><Link className="button button--primary" href="/markets">Enter Stone Daily <ArrowRight size={17} /></Link></section>
+        </div>
+      </div>
+    </article>
+  );
+}
+
 export function ProductDocumentation() {
+  const { language } = useAppState();
+  if (language === "en") return <EnglishProductDocumentation />;
   return (
     <article className="product-docs">
       <header className="product-docs__hero">

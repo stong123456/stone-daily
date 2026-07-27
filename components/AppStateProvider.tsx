@@ -3,9 +3,13 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import type { CalmRecord, UIMode } from "@/types/market";
 
+export type AppLanguage = "zh" | "en";
+
 interface AppStateValue {
   mode: UIMode;
   setMode: (mode: UIMode) => void;
+  language: AppLanguage;
+  setLanguage: (language: AppLanguage) => void;
   watchlistIds: string[];
   toggleWatchlist: (id: string) => void;
   records: CalmRecord[];
@@ -18,6 +22,7 @@ const AppStateContext = createContext<AppStateValue | null>(null);
 
 const STORAGE = {
   mode: "stone-daily:ui-mode:v1",
+  language: "stone-daily:language:v1",
   watchlist: "stone-daily:watchlist:v1",
   records: "stone-daily:calm-records:v1",
 };
@@ -33,13 +38,16 @@ function safeRead<T>(key: string, fallback: T): T {
 
 export function AppStateProvider({ children }: { children: React.ReactNode }) {
   const [mode, setMode] = useState<UIMode>("brief");
+  const [language, setLanguage] = useState<AppLanguage>("zh");
   const [watchlistIds, setWatchlistIds] = useState<string[]>([]);
   const [records, setRecords] = useState<CalmRecord[]>([]);
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
     const savedMode = safeRead<UIMode>(STORAGE.mode, "brief");
+    const savedLanguage = safeRead<AppLanguage>(STORAGE.language, "zh");
     setMode(["brief", "lens", "calm"].includes(savedMode) ? savedMode : "brief");
+    setLanguage(savedLanguage === "en" ? "en" : "zh");
     setWatchlistIds(safeRead<string[]>(STORAGE.watchlist, []));
     setRecords(safeRead<CalmRecord[]>(STORAGE.records, []));
     setHydrated(true);
@@ -49,6 +57,12 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     document.documentElement.dataset.theme = mode;
     if (hydrated) window.localStorage.setItem(STORAGE.mode, JSON.stringify(mode));
   }, [hydrated, mode]);
+
+  useEffect(() => {
+    document.documentElement.dataset.language = language;
+    document.documentElement.lang = language === "en" ? "en" : "zh-CN";
+    if (hydrated) window.localStorage.setItem(STORAGE.language, JSON.stringify(language));
+  }, [hydrated, language]);
 
   useEffect(() => {
     if (hydrated) window.localStorage.setItem(STORAGE.watchlist, JSON.stringify(watchlistIds));
@@ -76,8 +90,8 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   const clearRecords = useCallback(() => setRecords([]), []);
 
   const value = useMemo(
-    () => ({ mode, setMode, watchlistIds, toggleWatchlist, records, addRecord, removeRecord, clearRecords }),
-    [addRecord, clearRecords, mode, records, removeRecord, toggleWatchlist, watchlistIds],
+    () => ({ mode, setMode, language, setLanguage, watchlistIds, toggleWatchlist, records, addRecord, removeRecord, clearRecords }),
+    [addRecord, clearRecords, language, mode, records, removeRecord, toggleWatchlist, watchlistIds],
   );
 
   return <AppStateContext.Provider value={value}>{children}</AppStateContext.Provider>;

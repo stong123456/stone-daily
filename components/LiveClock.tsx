@@ -2,23 +2,17 @@
 
 import { Clock } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
+import { useAppState } from "@/components/AppStateProvider";
 
-const dateFormatter = new Intl.DateTimeFormat("zh-CN", {
-  timeZone: "Asia/Shanghai",
-  month: "long",
-  day: "numeric",
-  weekday: "short",
-});
+const dateFormatters = {
+  zh: new Intl.DateTimeFormat("zh-CN", { timeZone: "Asia/Shanghai", month: "long", day: "numeric", weekday: "short" }),
+  en: new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Shanghai", month: "short", day: "numeric", weekday: "short" }),
+};
 
-const timeFormatter = new Intl.DateTimeFormat("zh-CN", {
-  timeZone: "Asia/Shanghai",
-  hour: "2-digit",
-  minute: "2-digit",
-  second: "2-digit",
-  hour12: false,
-});
+const timeFormatter = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Shanghai", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
 
 export function LiveClock() {
+  const { language } = useAppState();
   const [now, setNow] = useState<Date | null>(null);
 
   useEffect(() => {
@@ -30,7 +24,7 @@ export function LiveClock() {
   return (
     <time className="live-clock" dateTime={now?.toISOString()}>
       <Clock aria-hidden size={14} weight="duotone" />
-      <span>{now ? dateFormatter.format(now) : "北京时间"}</span>
+      <span>{now ? dateFormatters[language].format(now) : (language === "en" ? "Beijing time" : "北京时间")}</span>
       <strong>{now ? timeFormatter.format(now) : "--:--:--"}</strong>
     </time>
   );

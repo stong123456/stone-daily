@@ -19,8 +19,8 @@ export function formatPercent(value: number) {
   return `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`;
 }
 
-export function formatRecordTime(value: string) {
-  return new Intl.DateTimeFormat("zh-CN", {
+export function formatRecordTime(value: string, locale = "zh-CN") {
+  return new Intl.DateTimeFormat(locale, {
     month: "short",
     day: "numeric",
     hour: "2-digit",

@@ -20,23 +20,27 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { LiveClock } from "@/components/LiveClock";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { useAppState } from "@/components/AppStateProvider";
 import { ThemeSwitcher } from "@/components/ThemeSwitcher";
 
 const navItems = [
-  { href: "/markets", label: "实时行情", Icon: ChartLineUp },
-  { href: "/hotspots", label: "每日热点", Icon: Newspaper },
-  { href: "/live", label: "7×24", Icon: Broadcast },
-  { href: "/calendar", label: "财经日历", Icon: CalendarCheck },
-  { href: "/today", label: "历史上的今天", Icon: CalendarDots },
-  { href: "/weather", label: "市场天气", Icon: CloudSun },
-  { href: "/detox", label: "热点拆弹器", Icon: Bomb },
-  { href: "/regret", label: "后悔药按钮", Icon: FirstAid },
-  { href: "/history", label: "我的记录", Icon: Timer },
-  { href: "/docs", label: "产品文档", Icon: BookOpenText },
+  { href: "/markets", zh: "实时行情", en: "Markets", Icon: ChartLineUp },
+  { href: "/hotspots", zh: "每日热点", en: "Daily Pulse", Icon: Newspaper },
+  { href: "/live", zh: "7×24", en: "7×24", Icon: Broadcast },
+  { href: "/calendar", zh: "财经日历", en: "Calendar", Icon: CalendarCheck },
+  { href: "/today", zh: "历史上的今天", en: "On This Day", Icon: CalendarDots },
+  { href: "/weather", zh: "市场天气", en: "Market Weather", Icon: CloudSun },
+  { href: "/detox", zh: "热点拆弹器", en: "Hype Detox", Icon: Bomb },
+  { href: "/regret", zh: "后悔药按钮", en: "Pause Button", Icon: FirstAid },
+  { href: "/history", zh: "我的记录", en: "My Records", Icon: Timer },
+  { href: "/docs", zh: "产品文档", en: "Product Guide", Icon: BookOpenText },
 ];
 
 export function Navbar() {
   const pathname = usePathname();
+  const { language } = useAppState();
+  const isEnglish = language === "en";
   const [open, setOpen] = useState(false);
 
   return (
@@ -44,28 +48,29 @@ export function Navbar() {
       <div className="top-utility-shell">
         <div className="top-utility-bar">
           <LiveClock />
-          <a aria-label="在 X 上访问石头 @Stone141319" className="creator-link creator-link--header" href="https://x.com/Stone141319" rel="noreferrer" target="_blank">
+          <a aria-label={isEnglish ? "Visit Stone @Stone141319 on X" : "在 X 上访问石头 @Stone141319"} className="creator-link creator-link--header" href="https://x.com/Stone141319" rel="noreferrer" target="_blank">
             <XLogo aria-hidden size={14} weight="fill" />
-            <span>X：石头</span>
+            <span>{isEnglish ? "X: Stone" : "X：石头"}</span>
             <small>@Stone141319</small>
           </a>
         </div>
       </div>
       <header className="navbar">
-        <Link aria-label="Stone Daily 首页" className="brand" href="/" onClick={() => setOpen(false)}>
+        <Link aria-label={isEnglish ? "Stone Daily home" : "Stone Daily 首页"} className="brand" href="/" onClick={() => setOpen(false)}>
           <span className="brand__mark"><Image alt="" aria-hidden height={48} priority src="/assets/stone-daily-mark.png" width={48} /></span>
           <span className="brand__wordmark"><span>Stone</span> <span>Daily</span></span>
         </Link>
-        <nav aria-label="主导航" className="navbar__links">
-          {navItems.map(({ href, label }) => (
-            <Link className="nav-link" data-active={pathname === href} href={href} key={href}>{label}</Link>
+        <nav aria-label={isEnglish ? "Main navigation" : "主导航"} className="navbar__links">
+          {navItems.map(({ href, zh, en }) => (
+            <Link className="nav-link" data-active={pathname === href} href={href} key={href}>{isEnglish ? en : zh}</Link>
           ))}
         </nav>
         <div className="navbar__actions">
+          <LanguageSwitcher compact />
           <ThemeSwitcher compact />
           <button
             aria-expanded={open}
-            aria-label={open ? "关闭菜单" : "打开菜单"}
+            aria-label={open ? (isEnglish ? "Close menu" : "关闭菜单") : (isEnglish ? "Open menu" : "打开菜单")}
             className="icon-button mobile-menu-button"
             onClick={() => setOpen((value) => !value)}
             type="button"
@@ -75,39 +80,40 @@ export function Navbar() {
         </div>
       </header>
 
-      <aside className="sidebar-nav" aria-label="侧边导航">
-        <Link aria-label="Stone Daily 首页" className="brand" href="/">
+      <aside className="sidebar-nav" aria-label={isEnglish ? "Side navigation" : "侧边导航"}>
+        <Link aria-label={isEnglish ? "Stone Daily home" : "Stone Daily 首页"} className="brand" href="/">
           <span className="brand__mark"><Image alt="" aria-hidden height={48} src="/assets/stone-daily-mark.png" width={48} /></span>
           <span className="brand__wordmark"><span>Stone</span> <span>Daily</span></span>
         </Link>
         <nav className="sidebar-nav__links">
-          {navItems.map(({ href, label, Icon }) => (
+          {navItems.map(({ href, zh, en, Icon }) => (
             <Link className="sidebar-link" data-active={pathname === href} href={href} key={href}>
               <Icon aria-hidden size={20} />
-              <span>{label}</span>
+              <span>{isEnglish ? en : zh}</span>
             </Link>
           ))}
         </nav>
         <div className="sidebar-nav__bottom">
+          <LanguageSwitcher />
           <ThemeSwitcher />
           <div className="sidebar-note">
             <FirstAid aria-hidden size={22} weight="duotone" />
-            <strong>理性，是最好的护身符</strong>
-            <span>市场有涨跌，先照顾好自己的情绪。</span>
+            <strong>{isEnglish ? "Clarity is your best protection" : "理性，是最好的护身符"}</strong>
+            <span>{isEnglish ? "Markets move. Take care of your state of mind first." : "市场有涨跌，先照顾好自己的情绪。"}</span>
           </div>
         </div>
       </aside>
 
       <div className="mobile-drawer" data-open={open}>
-        <nav aria-label="移动端导航">
-          {navItems.map(({ href, label, Icon }) => (
+        <nav aria-label={isEnglish ? "Mobile navigation" : "移动端导航"}>
+          {navItems.map(({ href, zh, en, Icon }) => (
             <Link className="sidebar-link" data-active={pathname === href} href={href} key={href} onClick={() => setOpen(false)}>
               <Icon aria-hidden size={20} />
-              <span>{label}</span>
+              <span>{isEnglish ? en : zh}</span>
             </Link>
           ))}
         </nav>
-        <ThemeSwitcher />
+        <div className="mobile-drawer__settings"><LanguageSwitcher /><ThemeSwitcher /></div>
       </div>
     </>
   );

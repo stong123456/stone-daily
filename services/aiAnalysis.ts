@@ -56,6 +56,20 @@ function productLabel(asset: MarketAsset) {
   return "币圈现货";
 }
 
+function productLabelEn(asset: MarketAsset) {
+  if (asset.productType === "tokenized-perpetual") return "tokenized-stock perpetual";
+  if (asset.productType === "tokenized-onchain") return "onchain tokenized stock";
+  if (asset.productType === "tokenized-spot") return "tokenized-stock spot";
+  return "crypto spot";
+}
+
+function productRiskEn(asset: MarketAsset) {
+  if (asset.productType === "tokenized-perpetual") return "Also check funding, leverage and liquidation risk. This is not the underlying share.";
+  if (asset.productType === "tokenized-onchain") return "Also verify custody, attestation, contract and onchain liquidity. The token is not the registered share.";
+  if (asset.productType === "tokenized-spot") return "Also verify backing, redemption, regional access and trading hours. This is not direct share ownership.";
+  return "This is one venue's spot quote. Compare price and depth across other major venues.";
+}
+
 function productRisk(asset: MarketAsset) {
   if (asset.productType === "tokenized-perpetual") return "还要单独检查资金费率、杠杆和强平风险，它不是基础股票现货。";
   if (asset.productType === "tokenized-onchain") return "还要核对托管、鉴证、合约和链上流动性，它不等于登记股票。";
@@ -88,19 +102,52 @@ function volumeDescription(asset: MarketAsset) {
   return "当前平台成交额偏薄，滑点和单笔大单对价格的影响可能更明显。";
 }
 
-export function buildAssetCalmPrompt(asset: MarketAsset) {
+export function buildAssetCalmPrompt(asset: MarketAsset, language: "zh" | "en" = "zh") {
   const symbol = underlyingSymbol(asset);
   const movement = movementDescription(asset.change24h);
   const impulse = asset.change24h >= 0 ? "担心错过，想马上追涨" : "担心继续下跌，又想立刻抄底";
   const activity = asset.volumeChange
     ? `较平时${asset.volumeChange >= 0 ? "增加" : "减少"}${Math.abs(asset.volumeChange).toFixed(0)}%`
     : asset.volume >= 1_000_000_000 ? "单平台成交额较大" : asset.volume >= 50_000_000 ? "单平台成交中等" : "单平台成交偏薄";
+  if (language === "en") {
+    const englishActivity = asset.volumeChange
+      ? `${asset.volumeChange >= 0 ? "up" : "down"} ${Math.abs(asset.volumeChange).toFixed(0)}% versus usual activity`
+      : asset.volume >= 1_000_000_000 ? "high single-venue turnover" : asset.volume >= 50_000_000 ? "moderate single-venue turnover" : "thin single-venue turnover";
+    return `[lang=en]; Asset: ${symbol}; Venue: ${asset.venue ?? "aggregated feed"}; Product: ${productLabelEn(asset)}; 24h: ${asset.change24h >= 0 ? "+" : ""}${asset.change24h.toFixed(2)}%; Volume: ${englishActivity}; Current impulse: ${asset.change24h >= 0 ? "fear of missing out and chase now" : "fear of further losses and buy the dip now"}. Help me slow down using this asset's move and product structure.`;
+  }
   return `资产：${symbol}（${asset.name}）；交易所：${asset.venue ?? "综合行情"}；产品：${productLabel(asset)}；24h：${asset.change24h >= 0 ? "+" : ""}${asset.change24h.toFixed(2)}%；量能：${activity}；主题：${lensFor(asset, symbol).focus}；页面提示：${asset.aiHint}；当前冲动：${impulse}。请按这个资产的具体波动和产品结构帮我冷静。`;
 }
 
-export async function generateAssetExplanation(asset: MarketAsset): Promise<AIExplanation> {
+export async function generateAssetExplanation(asset: MarketAsset, language: "zh" | "en" = "zh"): Promise<AIExplanation> {
   await simulateLatency();
   const symbol = underlyingSymbol(asset);
+  if (language === "en") {
+    const direction = asset.change24h > 0 ? "higher" : asset.change24h < 0 ? "lower" : "flat";
+    const absolute = Math.abs(asset.change24h);
+    const intensity = absolute >= 10 ? "sharp" : absolute >= 5 ? "large" : absolute >= 2 ? "firm" : absolute >= 0.5 ? "moderate" : "small";
+    const venue = asset.venue ?? "aggregated feed";
+    const volumeContext = asset.volumeChange >= 25
+      ? `Activity is ${asset.volumeChange.toFixed(0)}% above its usual reference, which supports participation but also raises crowding risk.`
+      : asset.volumeChange <= -20
+        ? `Activity is ${Math.abs(asset.volumeChange).toFixed(0)}% below its usual reference, so the move lacks volume confirmation.`
+        : "Activity is not an all-market total; compare depth and consistency across venues.";
+    return {
+      title: `${symbol} is ${direction} in a ${intensity} 24-hour move`,
+      whatHappened: `${asset.symbol} moved ${direction} by ${absolute.toFixed(2)}% on ${venue}. This row represents ${productLabelEn(asset)}${asset.quoteCurrency ? ` quoted in ${asset.quoteCurrency}` : ""}. ${volumeContext}`,
+      possibleReasons: [
+        "Market-wide risk appetite, venue flows and asset-specific news may be interacting. These are hypotheses, not confirmed causes.",
+        `${asset.symbol}'s product structure and trading venue can affect price discovery outside the underlying market's main hours.`,
+        productRiskEn(asset),
+      ],
+      commonMistake: absolute >= 5 ? "A large move does not prove value or direction. Do not replace liquidity, valuation and product checks with the percentage change." : "A smaller move does not mean risk has disappeared or that the next move is predictable.",
+      watchNext: [
+        "Whether price direction and volume remain aligned across more than one observation window.",
+        "Whether major venues show consistent price, depth and spread behavior.",
+        `Whether ${venue} diverges from other venues or the underlying market's trading hours.`,
+      ],
+      plainSummary: `${symbol}'s move shows expectations are changing, not that a trade is required. Confirm volume, cross-venue pricing and product-specific risk before acting.`,
+    };
+  }
   const lens = lensFor(asset, symbol);
   const movement = movementDescription(asset.change24h);
   const seed = stableIndex(`${symbol}-${asset.venue ?? "all"}`, lens.drivers.length);
@@ -157,6 +204,47 @@ function parseAssetCalmContext(input: string): AssetCalmContext | null {
   };
 }
 
+function parseEnglishAssetCalmContext(input: string): AssetCalmContext | null {
+  if (!input.includes("[lang=en]")) return null;
+  const field = (label: string) => input.match(new RegExp(`${label}: ([^;]+)`))?.[1]?.trim() ?? "";
+  const symbol = field("Asset").toUpperCase();
+  const change24h = Number(field("24h").replace("%", ""));
+  if (!symbol || !Number.isFinite(change24h)) return null;
+  return {
+    symbol,
+    venue: field("Venue") || "current venue",
+    product: field("Product") || "market product",
+    change24h,
+    volume: field("Volume") || "to be verified",
+    focus: "price, liquidity and product structure",
+    hint: "requires further verification",
+    impulse: field("Current impulse") || "act immediately",
+  };
+}
+
+function generateEnglishAssetRegretReport(context: AssetCalmContext): RegretAnalysis {
+  const direction = context.change24h >= 0 ? "higher" : "lower";
+  const move = Math.abs(context.change24h).toFixed(2);
+  const derivative = context.product.includes("perpetual");
+  const onchain = context.product.includes("onchain");
+  const productRisk = derivative
+    ? `${context.product} adds funding, margin and liquidation risk. A correct view on the underlying can still lose through position structure.`
+    : onchain
+      ? `${context.product} adds contract, custody, bridge and exit-liquidity risk and is not the registered share.`
+      : context.product.includes("tokenized")
+        ? `${context.product} adds backing, redemption, regional and trading-hours risk. The underlying share price is not the only variable.`
+        : `${context.venue} is one venue's spot quote; depth, slippage and cross-venue spreads affect execution.`;
+  return {
+    title: `${context.symbol} decision pause checklist`,
+    trigger: `${context.symbol} is ${direction} ${move}% over 24 hours on ${context.venue}. Your current impulse is “${context.impulse}.” Price speed can create urgency before the thesis is verified.`,
+    riskScenarios: [productRisk, `Current activity is “${context.volume}.” If depth has not improved, entry and exit may be worse than the screen quote.`, "A fast move can reverse before product, source and liquidity checks are complete."],
+    riskiestStep: `The riskiest step is treating ${context.symbol}'s 24-hour move as a countdown and increasing exposure without a written exit condition.`,
+    stopNow: ["Do not submit an immediate market order. Give yourself one full observation window.", derivative ? "Do not open leverage before writing down maximum loss and liquidation distance." : "Do not use money needed for daily life or increase size because of one percentage move.", `If you cannot state what would invalidate the ${context.symbol} thesis, do not execute yet.`],
+    verifySafely: [`Compare ${context.symbol} quotes, spreads and depth on at least two major venues.`, "Check the original announcement or primary data rather than a repost.", `Wait for another observation window, then confirm that ${context.symbol} still meets your price and risk conditions.`],
+    conclusion: `${context.symbol} will not lose all research value because you waited for one more verification cycle. Write down product structure, liquidity and invalidation before acting.`,
+  };
+}
+
 function calmProductRisk(context: AssetCalmContext) {
   if (context.product.includes("永续")) return `${context.product}还包含资金费率、杠杆和强平风险；判断基础资产方向正确，也可能因为仓位结构而亏损。`;
   if (context.product.includes("链上")) return `${context.product}还包含合约、托管、跨链与链上退出流动性风险，不能当成登记股票。`;
@@ -200,8 +288,23 @@ function generateAssetRegretReport(context: AssetCalmContext): RegretAnalysis {
   };
 }
 
-export async function generateRegretReport(input: string): Promise<RegretAnalysis> {
+export async function generateRegretReport(input: string, language: "zh" | "en" = "zh"): Promise<RegretAnalysis> {
   await simulateLatency(820);
+  if (language === "en") {
+    const assetContext = parseEnglishAssetCalmContext(input);
+    if (assetContext) return generateEnglishAssetRegretReport(assetContext);
+    const looksLikeLink = /link|airdrop|approval|wallet|contract/i.test(input);
+    const looksLikeChasing = /chase|rally|surge|all.in|heavy position|miss out/i.test(input);
+    return {
+      title: "Future-regret report",
+      trigger: looksLikeChasing ? "Fear of missing out, visible gains and group urgency may be driving the decision more than verified information." : "Urgency, social proof or an overly certain narrative may be pushing the decision before you have verified the source.",
+      riskScenarios: looksLikeLink ? ["The link may not be an official source.", "The requested permissions may exceed the stated action.", "Other assets in the connected wallet may be exposed."] : ["You may take more volatility than intended with incomplete information.", "If the narrative cools, emotion may become your only reason for holding.", "A short-term decision may disrupt living expenses or longer-term plans."],
+      riskiestStep: looksLikeLink ? "The riskiest step is connecting a main wallet or granting unlimited approval." : "The riskiest step is making the decision large before you can explain the reason clearly.",
+      stopNow: ["Do not act because of a countdown or one person's claim.", "Do not use money needed for everyday life.", looksLikeLink ? "Do not connect your main wallet." : "Do not increase risk while emotion is at its hottest."],
+      verifySafely: ["Confirm the official source and full risk disclosure.", "Write down the reason and revisit it after at least 24 hours.", "Ask a second person to review it, or test only in a way that does not involve funds."],
+      conclusion: "The idea may still be worth researching, but the next useful step is another verification—not faster action.",
+    };
+  }
   const assetContext = parseAssetCalmContext(input);
   if (assetContext) return generateAssetRegretReport(assetContext);
   const looksLikeLink = /链接|空投|授权|钱包|合约/i.test(input);
@@ -221,9 +324,21 @@ export async function generateRegretReport(input: string): Promise<RegretAnalysi
   };
 }
 
-export async function analyzeHotspot(input: string): Promise<HotspotAnalysis> {
+export async function analyzeHotspot(input: string, language: "zh" | "en" = "zh"): Promise<HotspotAnalysis> {
   await simulateLatency(760);
   const urgent = /马上|最后|错过|暴涨|翻倍|唯一|稳|保证|必/i.test(input);
+  if (language === "en") {
+    const urgentEnglish = /now|last chance|miss out|surge|double|only|guarantee|certain|must/i.test(input);
+    return {
+      summary: "This content frames a market story as urgent and directional, but it still lacks enough verifiable information.",
+      facts: ["It names a specific asset or market event.", "It contains a time, participant or product name that can be checked."],
+      speculation: ["It turns short-term attention into a claim about a lasting trend.", "It implies that acting now leads to a reliable outcome."],
+      emotionalAmplifiers: ["Urgency reduces the time available for verification.", "Visible gains from other people amplify fear of missing out."],
+      misleadingLine: urgentEnglish ? "The most misleading move is describing inaction now as an irreversible loss." : "The most misleading move is presenting one possibility as the only answer.",
+      missingInformation: ["Original source and publication time.", "Full risk disclosure and counter-evidence.", "Volume, liquidity and exit conditions."],
+      verdict: urgentEnglish ? "高风险上头信号" : "可以继续研究",
+    };
+  }
   return {
     summary: "这段内容把一个市场热点包装成了时间紧迫、方向明确的机会，但可验证的信息仍然不够。",
     facts: ["它提到了一个具体资产或市场事件。", "内容里存在可进一步核对的时间、主体或产品名称。"],
