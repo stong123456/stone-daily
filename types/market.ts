@@ -120,6 +120,22 @@ export interface EditorialFeedItem {
   urgency: "快讯" | "重要" | "常规";
 }
 
+export interface EditorialDigestItem {
+  id: string;
+  category: "币股" | "币圈";
+  title: string;
+  relatedAssets: string[];
+  sources: Array<{ name: string; url: string }>;
+  publishedAt: string;
+}
+
+export interface EditorialDigest {
+  language: "zh" | "en";
+  items: EditorialDigestItem[];
+  translatedCount: number;
+  mode: "translated" | "native-only";
+}
+
 export interface EditorialSourceHealth {
   name: string;
   type: "官方" | "交易所" | "媒体";
@@ -131,6 +147,7 @@ export interface EditorialSourceHealth {
 export interface EditorialFeedSnapshot {
   items: EditorialFeedItem[];
   providers: EditorialSourceHealth[];
+  digests?: { zh: EditorialDigest; en: EditorialDigest };
   updatedAt: string;
   mode: "live" | "partial" | "fallback";
 }

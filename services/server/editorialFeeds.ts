@@ -4,6 +4,7 @@ import type {
   EditorialFeedSnapshot,
   EditorialSourceHealth,
 } from "@/types/market";
+import { isTrackedUsStockAsset } from "@/services/editorialSharing";
 
 type SourceDefinition = {
   name: string;
@@ -88,8 +89,16 @@ const ASSET_PATTERNS: Array<[RegExp, string]> = [
   [/\bXRP\b|\bripple\b/i, "XRP"],
   [/\bBNB\b|\bbinance\b/i, "BNB"],
   [/\bDOGE\b|\bdogecoin\b/i, "DOGE"],
-  [/\bNVDA\b|\bnvidia\b/i, "NVDA"],
-  [/\bTSLA\b|\btesla\b/i, "TSLA"],
+  [/\bNVDA\b|\bnvidia\b|英伟达/i, "NVDA"],
+  [/\bTSLA\b|\btesla\b|特斯拉/i, "TSLA"],
+  [/\bAAPL\b|\bapple\b|苹果公司/i, "AAPL"],
+  [/\bMSFT\b|\bmicrosoft\b|微软/i, "MSFT"],
+  [/\bAMZN\b|\bamazon\b|亚马逊/i, "AMZN"],
+  [/\bMETA\b|\bmeta platforms\b|脸书母公司/i, "META"],
+  [/\bGOOGL?\b|\bgoogle\b|\balphabet\b|谷歌/i, "GOOGL"],
+  [/\bAMD\b|\badvanced micro devices\b|超威半导体/i, "AMD"],
+  [/\bNFLX\b|\bnetflix\b|奈飞/i, "NFLX"],
+  [/\bMSTR\b|\bmicrostrategy\b|\bstrategy\b|微策略/i, "MSTR"],
   [/\bCOIN\b|\bcoinbase\b/i, "COIN"],
   [/\boil\b|\bWTI\b|原油|石油/i, "CL"],
   [/\bgold\b|黄金/i, "XAU"],
@@ -136,7 +145,8 @@ function stableId(source: string, value: string) {
 
 function classifyCategory(text: string, fallback: EditorialFeedCategory): EditorialFeedCategory {
   if (/SEC|CFTC|regulat|lawsuit|enforcement|监管|处罚|立法|法院/i.test(text)) return "监管";
-  if (/tokenized stock|xStocks|equity|stock|shares|美股|A股|港股|股票|上市公司/i.test(text)) return "币股";
+  const hasTrackedUsStock = relatedAssets(text).some(isTrackedUsStockAsset);
+  if (hasTrackedUsStock || /tokenized stock|xStocks|equity|stock|shares|美股|A股|港股|股票|上市公司/i.test(text)) return "币股";
   if (/bitcoin|ethereum|crypto|blockchain|token|stablecoin|DeFi|比特币|以太坊|加密|币圈/i.test(text)) return "币圈";
   if (/AI|chip|semiconductor|technology|人工智能|芯片|算力|科技/i.test(text)) return "科技";
   if (/rate|inflation|central bank|GDP|jobs|employment|央行|利率|通胀|就业|经济/i.test(text)) return "宏观";
