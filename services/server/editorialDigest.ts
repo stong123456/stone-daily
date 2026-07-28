@@ -3,6 +3,7 @@ import {
   containsHan,
   extractShareHeadline,
   isShareableMarketStory,
+  polishTranslatedHeadline,
 } from "@/services/editorialSharing";
 import type {
   EditorialDigest,
@@ -59,7 +60,8 @@ async function translateHeadline(value: string, language: "zh" | "en") {
     });
     if (!response.ok) throw new Error(`translation ${response.status}`);
     const payload = await response.json() as TranslationResponse;
-    const translated = decodeTranslationEntities(payload.responseData?.translatedText ?? "").replace(/\s+/g, " ").trim();
+    const rawTranslation = decodeTranslationEntities(payload.responseData?.translatedText ?? "").replace(/\s+/g, " ").trim();
+    const translated = polishTranslatedHeadline(headline, rawTranslation, language);
     const result = payload.responseStatus === 200 && translated && matchesTargetLanguage(translated, language)
       ? translated
       : null;
