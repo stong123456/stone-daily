@@ -1,6 +1,5 @@
 import { buildDailyHotspots } from "@/services/editorialRanking";
 import {
-  compactShareHeadline,
   containsHan,
   extractShareHeadline,
   isShareableMarketStory,
@@ -108,7 +107,7 @@ async function buildLocalizedDigest(items: EditorialFeedItem[], language: "zh" |
     return {
       id: item.id,
       category: item.category === "币股" ? "币股" : "币圈",
-      title: compactShareHeadline(title, language),
+      title,
       relatedAssets: item.relatedAssets,
       sources: item.sources,
       publishedAt: item.publishedAt,

@@ -40,10 +40,3 @@ export function extractShareHeadline(value: string) {
   const firstSentence = normalized.split(/[。！？!?]/, 1)[0];
   return (bracketHeadline || firstSentence || normalized).trim();
 }
-
-export function compactShareHeadline(value: string, language: "zh" | "en") {
-  const headline = extractShareHeadline(value);
-  const limit = language === "zh" ? 26 : 56;
-  const characters = Array.from(headline);
-  return characters.length > limit ? `${characters.slice(0, limit).join("")}…` : headline;
-}
