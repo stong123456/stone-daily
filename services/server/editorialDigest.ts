@@ -17,7 +17,7 @@ type TranslationResponse = {
 
 const SUCCESS_CACHE_MS = 24 * 60 * 60 * 1_000;
 const FAILURE_CACHE_MS = 5 * 60 * 1_000;
-const DIGEST_CACHE_MS = 6 * 60 * 60 * 1_000;
+const DIGEST_CACHE_MS = 30 * 60 * 1_000;
 const SHARE_DIGEST_LIMIT = 6;
 const translationCache = new Map<string, { value: string | null; expiresAt: number }>();
 let digestCache: { value: { zh: EditorialDigest; en: EditorialDigest }; expiresAt: number } | null = null;
