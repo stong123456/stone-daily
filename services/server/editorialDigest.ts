@@ -19,6 +19,7 @@ const SUCCESS_CACHE_MS = 24 * 60 * 60 * 1_000;
 const FAILURE_CACHE_MS = 5 * 60 * 1_000;
 const DIGEST_CACHE_MS = 30 * 60 * 1_000;
 const SHARE_DIGEST_LIMIT = 6;
+const SHARE_DIGEST_CANDIDATE_LIMIT = 10;
 const translationCache = new Map<string, { value: string | null; expiresAt: number }>();
 let digestCache: { value: { zh: EditorialDigest; en: EditorialDigest }; expiresAt: number } | null = null;
 
@@ -101,7 +102,7 @@ function mergeDigestItem(target: EditorialDigestItem, incoming: EditorialDigestI
 }
 
 async function buildLocalizedDigest(items: EditorialFeedItem[], language: "zh" | "en"): Promise<EditorialDigest> {
-  const candidates = buildDailyHotspots(items.filter(isShareableMarketStory), SHARE_DIGEST_LIMIT, language);
+  const candidates = buildDailyHotspots(items.filter(isShareableMarketStory), SHARE_DIGEST_CANDIDATE_LIMIT, language);
   const localized = await Promise.all(candidates.map(async (item): Promise<EditorialDigestItem | null> => {
     const title = await translateHeadline(item.title, language);
     if (!title) return null;
