@@ -19,7 +19,8 @@ const US_STOCK_ASSETS = new Set([
 const US_STOCK_OR_TOKENIZED_MARKER =
   /tokenized[-\s]?(?:stock|equity)|xstocks?|rtoken|stock token|币股|代币化(?:美股|股票)|美股|纳斯达克|纽交所|标普|道琼斯|华尔街|\b(?:U\.?S\.?|US)\s+(?:stock|equity|share)s?\b|\b(?:NYSE|NASDAQ|S&P 500|Dow Jones)\b/i;
 
-const CRYPTO_ASSETS = new Set(["BTC", "ETH", "SOL", "XRP", "BNB", "DOGE"]);
+const TRACKED_US_STOCK_HEADLINE_MARKER =
+  /\b(?:AAPL|Apple|NVDA|Nvidia|TSLA|Tesla|MSFT|Microsoft|AMZN|Amazon|META|Meta Platforms|GOOGL?|Google|Alphabet|AMD|Netflix|NFLX|MSTR|MicroStrategy|Strategy|COIN|Coinbase|SPY)\b|苹果公司|英伟达|特斯拉|微软|亚马逊|脸书母公司|谷歌|超威半导体|奈飞|微策略/i;
 const CRYPTO_MARKET_MARKER =
   /\b(?:bitcoin|ethereum|solana|zcash|xrp|ripple|bnb|dogecoin|cryptocurrency|crypto(?:\s+(?:market|asset|exchange|wallet|trading|fund))?|blockchain|stablecoin|defi|web3|nft|altcoin|memecoin|layer[-\s]?2|tokenized?|staking|miner)\b|比特币|以太坊|加密(?:货币|资产|市场|交易|钱包)|区块链|稳定币|代币|链上|矿企|挖矿|质押|币圈/i;
 
@@ -32,9 +33,9 @@ export function isTrackedUsStockAsset(asset: string) {
 }
 
 export function isShareableMarketStory(item: EditorialFeedItem) {
-  const text = `${item.title} ${item.summary}`;
-  const hasTrackedStock = US_STOCK_OR_TOKENIZED_MARKER.test(text) || item.relatedAssets.some(isTrackedUsStockAsset);
-  const hasCryptoMarketSubject = CRYPTO_MARKET_MARKER.test(text) || item.relatedAssets.some((asset) => CRYPTO_ASSETS.has(asset));
+  const headline = item.title;
+  const hasTrackedStock = US_STOCK_OR_TOKENIZED_MARKER.test(headline) || TRACKED_US_STOCK_HEADLINE_MARKER.test(headline);
+  const hasCryptoMarketSubject = CRYPTO_MARKET_MARKER.test(headline);
   return hasTrackedStock || hasCryptoMarketSubject;
 }
 
