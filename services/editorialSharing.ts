@@ -19,6 +19,10 @@ const US_STOCK_ASSETS = new Set([
 const US_STOCK_OR_TOKENIZED_MARKER =
   /tokenized[-\s]?(?:stock|equity)|xstocks?|rtoken|stock token|币股|代币化(?:美股|股票)|美股|纳斯达克|纽交所|标普|道琼斯|华尔街|\b(?:U\.?S\.?|US)\s+(?:stock|equity|share)s?\b|\b(?:NYSE|NASDAQ|S&P 500|Dow Jones)\b/i;
 
+const CRYPTO_ASSETS = new Set(["BTC", "ETH", "SOL", "XRP", "BNB", "DOGE"]);
+const CRYPTO_MARKET_MARKER =
+  /\b(?:bitcoin|ethereum|solana|zcash|xrp|ripple|bnb|dogecoin|cryptocurrency|crypto(?:\s+(?:market|asset|exchange|wallet|trading|fund))?|blockchain|stablecoin|defi|web3|nft|altcoin|memecoin|layer[-\s]?2|tokenized?|staking|miner)\b|比特币|以太坊|加密(?:货币|资产|市场|交易|钱包)|区块链|稳定币|代币|链上|矿企|挖矿|质押|币圈/i;
+
 export function containsHan(value: string) {
   return /\p{Script=Han}/u.test(value);
 }
@@ -28,10 +32,10 @@ export function isTrackedUsStockAsset(asset: string) {
 }
 
 export function isShareableMarketStory(item: EditorialFeedItem) {
-  if (item.category === "币圈") return true;
-  if (item.category !== "币股") return false;
   const text = `${item.title} ${item.summary}`;
-  return US_STOCK_OR_TOKENIZED_MARKER.test(text) || item.relatedAssets.some(isTrackedUsStockAsset);
+  const hasTrackedStock = US_STOCK_OR_TOKENIZED_MARKER.test(text) || item.relatedAssets.some(isTrackedUsStockAsset);
+  const hasCryptoMarketSubject = CRYPTO_MARKET_MARKER.test(text) || item.relatedAssets.some((asset) => CRYPTO_ASSETS.has(asset));
+  return hasTrackedStock || hasCryptoMarketSubject;
 }
 
 export function extractShareHeadline(value: string) {
@@ -183,6 +187,9 @@ function normalizeChineseHeadline(source: string, value: string) {
     .replace(/加密(?:业务)?推送/g, "加密资产布局")
     .replace(/纳斯达克首次亮相/g, "纳斯达克首秀")
     .replace(/比特币矿工(?=\s*[A-Z])/g, "比特币矿企")
+    .replace(/([\p{Script=Han}])([A-Za-z][A-Za-z0-9.-]*)/gu, "$1 $2")
+    .replace(/([A-Za-z][A-Za-z0-9.-]*)([\p{Script=Han}])/gu, "$1 $2")
+    .replace(/^(关键财报(?:公布|发布)前)(?![，,])/, "$1，")
     .trim();
 
   result = result
