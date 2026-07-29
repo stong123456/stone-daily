@@ -89,6 +89,7 @@ const HEADLINE_ENTITY_RULES = [
 const UNPUBLISHABLE_ZH_PATTERNS = [
   /评分获胜/,
   /(?:加密|数字资产)(?:业务)?推送/,
+  /加密(?:货币)?检查/,
   /摄氏度(?:挂钩|关联|相关)/,
   /防范排除了/,
   /[-—–－]\s*(?:目前|现在|暂时)(?:来看)?[。.]?$/,
@@ -143,6 +144,14 @@ function naturalRewriteFromEnglish(source: string, translated: string) {
 
   if (/^Zcash says Ironwood proof rules out undetectable counterfeiting bugs$/i.test(source)) {
     return "Zcash：Ironwood 证明机制可排除无法检测的伪造漏洞";
+  }
+
+  if (/^Hungary repeals crypto checks as first MiCA license is granted$/i.test(source)) {
+    return "匈牙利取消加密货币兑换的第三方强制审查，并颁发首张 MiCA 牌照";
+  }
+
+  if (/^South Korea plans stablecoin rules as opposition pushes crypto tax repeal$/i.test(source)) {
+    return "韩国拟制定稳定币监管规则，反对党推动废除加密货币税";
   }
 
   const expandsCrypto = source.match(/^(.+?)\s+expands?\s+(?:its\s+)?crypto push\s+with\s+(.+)$/i);

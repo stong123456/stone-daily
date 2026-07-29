@@ -91,7 +91,7 @@ export function HotspotsPortal() {
   useEffect(() => {
     const controller = new AbortController();
     const load = () => {
-      fetch("/api/editorial?digest=full-v6", { cache: "no-store", signal: controller.signal })
+      fetch("/api/editorial?digest=full-v7", { cache: "no-store", signal: controller.signal })
         .then((response) => {
           if (!response.ok) throw new Error("editorial feed unavailable");
           return response.json() as Promise<EditorialFeedSnapshot>;
