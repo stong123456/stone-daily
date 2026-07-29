@@ -2,6 +2,8 @@ import { buildDailyHotspots } from "@/services/editorialRanking";
 import {
   containsHan,
   extractShareHeadline,
+  isPublishableTranslatedHeadline,
+  isRigorousDigestHeadlineSource,
   isShareableMarketStory,
   polishTranslatedHeadline,
 } from "@/services/editorialSharing";
@@ -20,7 +22,7 @@ const SUCCESS_CACHE_MS = 24 * 60 * 60 * 1_000;
 const FAILURE_CACHE_MS = 5 * 60 * 1_000;
 const DIGEST_CACHE_MS = 30 * 60 * 1_000;
 const SHARE_DIGEST_LIMIT = 6;
-const SHARE_DIGEST_CANDIDATE_LIMIT = 10;
+const SHARE_DIGEST_CANDIDATE_LIMIT = 16;
 const translationCache = new Map<string, { value: string | null; expiresAt: number }>();
 let digestCache: { value: { zh: EditorialDigest; en: EditorialDigest }; expiresAt: number } | null = null;
 
@@ -38,8 +40,12 @@ function matchesTargetLanguage(value: string, language: "zh" | "en") {
 }
 
 async function translateHeadline(value: string, language: "zh" | "en") {
+  if (!isRigorousDigestHeadlineSource(value)) return null;
   const headline = extractShareHeadline(value);
-  if (matchesTargetLanguage(headline, language)) return headline;
+  if (matchesTargetLanguage(headline, language)) {
+    const nativeHeadline = polishTranslatedHeadline(headline, headline, language);
+    return isPublishableTranslatedHeadline(headline, nativeHeadline, language) ? nativeHeadline : null;
+  }
 
   const key = `${language}:${headline}`;
   const cached = translationCache.get(key);
@@ -62,7 +68,10 @@ async function translateHeadline(value: string, language: "zh" | "en") {
     const payload = await response.json() as TranslationResponse;
     const rawTranslation = decodeTranslationEntities(payload.responseData?.translatedText ?? "").replace(/\s+/g, " ").trim();
     const translated = polishTranslatedHeadline(headline, rawTranslation, language);
-    const result = payload.responseStatus === 200 && translated && matchesTargetLanguage(translated, language)
+    const result = payload.responseStatus === 200
+      && translated
+      && matchesTargetLanguage(translated, language)
+      && isPublishableTranslatedHeadline(headline, translated, language)
       ? translated
       : null;
     translationCache.set(key, {
