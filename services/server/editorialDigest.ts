@@ -1,7 +1,9 @@
 import { buildDailyHotspots } from "@/services/editorialRanking";
 import {
+  areSameEditorialEvent,
   containsHan,
   extractShareHeadline,
+  getShareDigestCategory,
   isPublishableTranslatedHeadline,
   isRigorousDigestHeadlineSource,
   isShareableMarketStory,
@@ -22,7 +24,7 @@ const SUCCESS_CACHE_MS = 24 * 60 * 60 * 1_000;
 const FAILURE_CACHE_MS = 5 * 60 * 1_000;
 const DIGEST_CACHE_MS = 30 * 60 * 1_000;
 const SHARE_DIGEST_LIMIT = 6;
-const SHARE_DIGEST_CANDIDATE_LIMIT = 16;
+const SHARE_DIGEST_CANDIDATE_LIMIT = 32;
 const translationCache = new Map<string, { value: string | null; expiresAt: number }>();
 let digestCache: { value: { zh: EditorialDigest; en: EditorialDigest }; expiresAt: number } | null = null;
 
@@ -85,24 +87,6 @@ async function translateHeadline(value: string, language: "zh" | "en") {
   }
 }
 
-function titleBigrams(value: string) {
-  const compact = value.toLowerCase().replace(/[\s\p{P}\p{S}]+/gu, "");
-  const grams = new Set<string>();
-  for (let index = 0; index < compact.length - 1; index += 1) grams.add(compact.slice(index, index + 2));
-  return grams;
-}
-
-function titleSimilarity(left: string, right: string) {
-  const leftGrams = titleBigrams(left);
-  const rightGrams = titleBigrams(right);
-  if (leftGrams.size === 0 || rightGrams.size === 0) return 0;
-  let overlap = 0;
-  leftGrams.forEach((gram) => {
-    if (rightGrams.has(gram)) overlap += 1;
-  });
-  return overlap / Math.min(leftGrams.size, rightGrams.size);
-}
-
 function mergeDigestItem(target: EditorialDigestItem, incoming: EditorialDigestItem) {
   const sources = new Map(target.sources.map((source) => [source.name, source]));
   incoming.sources.forEach((source) => {
@@ -113,13 +97,17 @@ function mergeDigestItem(target: EditorialDigestItem, incoming: EditorialDigestI
 }
 
 async function buildLocalizedDigest(items: EditorialFeedItem[], language: "zh" | "en"): Promise<EditorialDigest> {
-  const candidates = buildDailyHotspots(items.filter(isShareableMarketStory), SHARE_DIGEST_CANDIDATE_LIMIT, language);
+  const candidates = buildDailyHotspots(
+    items.filter((item) => isShareableMarketStory(item) && isRigorousDigestHeadlineSource(item.title)),
+    SHARE_DIGEST_CANDIDATE_LIMIT,
+    language,
+  );
   const localized = await Promise.all(candidates.map(async (item): Promise<EditorialDigestItem | null> => {
     const title = await translateHeadline(item.title, language);
     if (!title) return null;
     return {
       id: item.id,
-      category: item.category === "币股" ? "币股" : "币圈",
+      category: getShareDigestCategory(item.title),
       title,
       relatedAssets: item.relatedAssets,
       sources: item.sources,
@@ -132,8 +120,7 @@ async function buildLocalizedDigest(items: EditorialFeedItem[], language: "zh" |
     if (!item) return;
     const match = deduped.find((existing) => {
       if (existing.category !== item.category) return false;
-      const sharedAsset = item.relatedAssets.some((asset) => existing.relatedAssets.includes(asset));
-      return titleSimilarity(existing.title, item.title) >= (sharedAsset ? 0.28 : 0.5);
+      return areSameEditorialEvent(existing.title, item.title);
     });
     if (match) {
       mergeDigestItem(match, item);

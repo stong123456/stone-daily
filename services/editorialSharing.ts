@@ -33,10 +33,21 @@ export function isTrackedUsStockAsset(asset: string) {
 }
 
 export function isShareableMarketStory(item: EditorialFeedItem) {
-  const headline = item.title;
+  // Eligibility must be explicit in the exact headline users will copy. A
+  // company name buried later in a long wire body cannot make a generic
+  // bracket headline look market-specific.
+  const headline = extractShareHeadline(item.title);
   const hasTrackedStock = US_STOCK_OR_TOKENIZED_MARKER.test(headline) || TRACKED_US_STOCK_HEADLINE_MARKER.test(headline);
   const hasCryptoMarketSubject = CRYPTO_MARKET_MARKER.test(headline);
   return hasTrackedStock || hasCryptoMarketSubject;
+}
+
+export function getShareDigestCategory(value: string): "币股" | "币圈" {
+  const headline = extractShareHeadline(value);
+  const hasStockSubject = US_STOCK_OR_TOKENIZED_MARKER.test(headline)
+    || TRACKED_US_STOCK_HEADLINE_MARKER.test(headline)
+    || /\b(?:bitcoin|crypto) miner stocks?\b/i.test(headline);
+  return hasStockSubject ? "币股" : "币圈";
 }
 
 export function extractShareHeadline(value: string) {
@@ -44,6 +55,33 @@ export function extractShareHeadline(value: string) {
   const bracketHeadline = normalized.match(/^【([^】]+)】/)?.[1];
   const firstSentence = normalized.split(/[。！？!?]/, 1)[0];
   return (bracketHeadline || firstSentence || normalized).trim();
+}
+
+const NON_EVENT_HEADLINE_PATTERNS = [
+  /^(?:here(?:'|’)s|here are)\s+(?:what|the|today)\b/i,
+  /\bwhat happened in (?:crypto|cryptocurrency|bitcoin|web3)(?: today)?\b/i,
+  /^(?:today in crypto|crypto today|cryptocurrency today)\b/i,
+  /^(?:morning|evening|daily|weekly)\s+(?:minute|brief|briefing|roundup|digest)\b/i,
+  /^(?:crypto|cryptocurrency|bitcoin|web3)\s+(?:news|roundup|briefing|digest)(?:\s+today)?(?:\s*[:|—–-]|$)/i,
+  /^(?:top|biggest)\s+\d+\s+(?:crypto|cryptocurrency|bitcoin|web3)?\s*(?:stories|headlines|news)\b/i,
+  /^(?:everything|all)\s+you need to know\b/i,
+  /^(?:what is|how to|a guide to|beginner(?:'|’)s guide to|explained\s*:)\b/i,
+  /(?:今天|今日)(?:的)?(?:加密货币|币圈|比特币|Web3).{0,10}(?:发生了什么|发生的事情|新闻汇总|要闻汇总|热点汇总)/i,
+  /^(?:以下是|这里是).{0,12}(?:发生的事情|新闻|要闻|热点|汇总)/,
+  /^(?:每日|今日|早间|午间|晚间|本周)(?:加密|币圈|市场)?(?:简报|早报|晚报|速览|汇总|回顾|综述|要闻|热点)(?:[：:—–-]|$)/,
+  /^(?:一文(?:看懂|了解)|盘点|速览).{0,18}(?:币圈|加密|比特币|市场|今日|本周)/,
+] as const;
+
+const DANGLING_HEADLINE_END = /(?:[,:：，;；—–-]|\.{3}|…|\b(?:and|or|as|after|with|amid|for|to)\b|(?:与|和|及|以及|但|而|因|随着|称|表示|关于|为了))$/i;
+
+function hasBalancedHeadlinePairs(value: string) {
+  const pairs: Array<[string, string]> = [["(", ")"], ["[", "]"], ["（", "）"], ["【", "】"]];
+  return pairs.every(([open, close]) => value.split(open).length === value.split(close).length);
+}
+
+function isMetaEditorialHeadline(value: string) {
+  const normalized = value.replace(/\s+/g, " ").trim();
+  return NON_EVENT_HEADLINE_PATTERNS.some((pattern) => pattern.test(normalized));
 }
 
 export function isRigorousDigestHeadlineSource(value: string) {
@@ -55,10 +93,18 @@ export function isRigorousDigestHeadlineSource(value: string) {
   if (/[?？]/.test(normalized)) return false;
   if (/\b(?:price prediction|which will|what happens next|could .*? (?:rise|fall|surge|crash))\b/i.test(normalized)) return false;
   if (/(?:价格预测|谁将|会不会|能否|是否会|或将).{0,28}[？?]/.test(normalized)) return false;
+  if (isMetaEditorialHeadline(normalized)) return false;
+  if (DANGLING_HEADLINE_END.test(normalized) || !hasBalancedHeadlinePairs(normalized)) return false;
   return true;
 }
 
-const HEADLINE_ENTITY_RULES = [
+type HeadlineEntityRule = {
+  source: RegExp;
+  targets: readonly string[];
+  orderSensitive?: boolean;
+};
+
+const HEADLINE_ENTITY_RULES: readonly HeadlineEntityRule[] = [
   { source: /\bMichael Saylor\b/gi, targets: ["迈克尔·塞勒", "Michael Saylor"] },
   { source: /\bMorgan Stanley\b/gi, targets: ["摩根士丹利", "Morgan Stanley"] },
   { source: /\bFederal Reserve\b|\bFed\b/gi, targets: ["美联储", "Federal Reserve", "Fed"] },
@@ -67,10 +113,12 @@ const HEADLINE_ENTITY_RULES = [
   { source: /\bApple\b/gi, targets: ["苹果", "Apple"] },
   { source: /\bNvidia\b/gi, targets: ["英伟达", "Nvidia"] },
   { source: /\bNasdaq\b/gi, targets: ["纳斯达克", "Nasdaq"] },
-  { source: /\bBitcoin\b/gi, targets: ["比特币", "Bitcoin"] },
-  { source: /\bEthereum\b/gi, targets: ["以太坊", "Ethereum"] },
-  { source: /\bSolana\b/gi, targets: ["Solana", "索拉纳"] },
-  { source: /\bZcash\b/gi, targets: ["Zcash", "大零币"] },
+  { source: /\bBitcoin\b/gi, targets: ["比特币", "Bitcoin"], orderSensitive: true },
+  { source: /\bAltcoin(?:s)?\b/gi, targets: ["山寨币", "Altcoin", "Altcoins"], orderSensitive: true },
+  { source: /\bEthereum\b/gi, targets: ["以太坊", "Ethereum"], orderSensitive: true },
+  { source: /\bXRP\b/g, targets: ["XRP"], orderSensitive: true },
+  { source: /\bSolana\b/gi, targets: ["Solana", "索拉纳"], orderSensitive: true },
+  { source: /\bZcash\b/gi, targets: ["Zcash", "大零币"], orderSensitive: true },
   { source: /\bIronwood\b/gi, targets: ["Ironwood"] },
   { source: /\bKalshi\b/gi, targets: ["Kalshi"] },
   { source: /\bPolymarket\b/gi, targets: ["Polymarket"] },
@@ -80,11 +128,12 @@ const HEADLINE_ENTITY_RULES = [
   { source: /\bBybit\b/gi, targets: ["Bybit"] },
   { source: /\bBitget\b/gi, targets: ["Bitget"] },
   { source: /\bOKX\b/g, targets: ["OKX"] },
+  { source: /\bSBI\b/g, targets: ["SBI"] },
   { source: /\bSEC\b/g, targets: ["SEC", "美国证券交易委员会"] },
   { source: /\bCFTC\b/g, targets: ["CFTC", "美国商品期货交易委员会"] },
-  { source: /\bETF(?:s)?\b/gi, targets: ["ETF", "ETFs"] },
-  { source: /\bETP(?:s)?\b/gi, targets: ["ETP", "ETPs"] },
-] as const;
+  { source: /\bETF(?:s)?\b/gi, targets: ["ETF", "ETFs"], orderSensitive: true },
+  { source: /\bETP(?:s)?\b/gi, targets: ["ETP", "ETPs"], orderSensitive: true },
+];
 
 const UNPUBLISHABLE_ZH_PATTERNS = [
   /评分获胜/,
@@ -96,6 +145,10 @@ const UNPUBLISHABLE_ZH_PATTERNS = [
   /(?:^|[，：；])\s*目前[。.]?$/,
   /([\p{Script=Han}A-Za-z][\p{Script=Han}A-Za-z· ]{1,20})将在[^，。]{0,24}超越\1/u,
   /[，：；]\s*[，：；]/,
+  /以下是今天(?:加密货币|币圈).{0,8}(?:发生的事情|新闻|要闻)/,
+  /(?:加密货币|币圈)(?:今日|每天)(?:新闻|汇总|简报)/,
+  /(?:山寨币基金比特币|以太坊基金比特币|基金山寨币比特币)/,
+  /敲诈骗(?!局)/,
 ] as const;
 
 function countMatches(value: string, matcher: RegExp) {
@@ -114,6 +167,85 @@ function countTargetMentions(value: string, targets: readonly string[]) {
 
 function sourceNumbers(value: string) {
   return value.match(/\b\d+(?:\.\d+)?%?/g) ?? [];
+}
+
+function collectSourceEntitySequence(value: string, orderSensitiveOnly = false) {
+  const matches: Array<{ index: number; ruleIndex: number }> = [];
+  HEADLINE_ENTITY_RULES.forEach((rule, ruleIndex) => {
+    if (orderSensitiveOnly && !rule.orderSensitive) return;
+    const matcher = new RegExp(rule.source.source, rule.source.flags.includes("g") ? rule.source.flags : `${rule.source.flags}g`);
+    for (const match of value.matchAll(matcher)) matches.push({ index: match.index ?? 0, ruleIndex });
+  });
+  return matches.sort((left, right) => left.index - right.index || left.ruleIndex - right.ruleIndex).map((match) => match.ruleIndex);
+}
+
+function collectCandidateEntitySequence(value: string, orderSensitiveOnly = false) {
+  const matches: Array<{ index: number; ruleIndex: number }> = [];
+  HEADLINE_ENTITY_RULES.forEach((rule, ruleIndex) => {
+    if (orderSensitiveOnly && !rule.orderSensitive) return;
+    rule.targets.forEach((target) => {
+      const escaped = target.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const bounded = /^[A-Za-z0-9]/.test(target) && /[A-Za-z0-9]$/.test(target)
+        ? `\\b${escaped}\\b`
+        : escaped;
+      const matcher = new RegExp(bounded, "gi");
+      for (const match of value.matchAll(matcher)) matches.push({ index: match.index ?? 0, ruleIndex });
+    });
+  });
+  return matches.sort((left, right) => left.index - right.index || left.ruleIndex - right.ruleIndex).map((match) => match.ruleIndex);
+}
+
+const EVENT_GENERIC_WORDS = new Set([
+  "a", "an", "and", "as", "at", "by", "for", "from", "in", "into", "is", "of", "on", "or", "the", "to", "with",
+  "after", "amid", "before", "new", "over", "say", "says",
+  "bitcoin", "btc", "crypto", "cryptocurrency", "ethereum", "ether", "eth", "market", "markets", "price", "prices",
+  "stock", "stocks", "token", "tokens", "today", "daily", "latest", "news", "fund", "funds",
+]);
+
+function normalizedEventText(value: string) {
+  return value.toLowerCase().replace(/[’']/g, "").replace(/[\s\p{P}\p{S}]+/gu, "");
+}
+
+function latinEventTokens(value: string) {
+  const tokens = value.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [];
+  return new Set(tokens.filter((token) => token.length >= 3 && !EVENT_GENERIC_WORDS.has(token)));
+}
+
+function hanEventBigrams(value: string) {
+  const compact = value
+    .toLowerCase()
+    .replace(/比特币|以太坊|加密货币|加密资产|币圈|市场|价格|股票|代币|基金|今日|今天|新闻|热点|最新/g, "")
+    .replace(/[\s\p{P}\p{S}A-Za-z0-9]+/gu, "");
+  const grams = new Set<string>();
+  for (let index = 0; index < compact.length - 1; index += 1) grams.add(compact.slice(index, index + 2));
+  return grams;
+}
+
+function overlapStats(left: Set<string>, right: Set<string>) {
+  let shared = 0;
+  left.forEach((token) => {
+    if (right.has(token)) shared += 1;
+  });
+  return {
+    shared,
+    containment: shared / Math.max(1, Math.min(left.size, right.size)),
+    jaccard: shared / Math.max(1, left.size + right.size - shared),
+  };
+}
+
+export function areSameEditorialEvent(left: string, right: string) {
+  if (normalizedEventText(left) === normalizedEventText(right)) return true;
+  const leftHasHan = containsHan(left);
+  const rightHasHan = containsHan(right);
+  if (leftHasHan !== rightHasHan) return false;
+
+  if (leftHasHan) {
+    const stats = overlapStats(hanEventBigrams(left), hanEventBigrams(right));
+    return stats.shared >= 4 && stats.containment >= 0.52 && stats.jaccard >= 0.34;
+  }
+
+  const stats = overlapStats(latinEventTokens(left), latinEventTokens(right));
+  return stats.shared >= 3 && stats.containment >= 0.55 && stats.jaccard >= 0.34;
 }
 
 function translateShortTimePhrase(value: string) {
@@ -138,6 +270,30 @@ function translateShortTimePhrase(value: string) {
 }
 
 function naturalRewriteFromEnglish(source: string, translated: string) {
+  if (/^There(?:'|’)s a New Way to Protect Bitcoin From Future Quantum Attacks, Researchers Say$/i.test(source)) {
+    return "研究人员提出一种帮助比特币抵御未来量子攻击的新方案";
+  }
+
+  if (/^US sanctions Iranian maritime firm, says it accepted Bitcoin to evade restrictions$/i.test(source)) {
+    return "美国制裁伊朗海事公司，称其接受比特币以规避限制";
+  }
+
+  if (/^Ethereum Price Stalls as Fed Rate Decision Looms$/i.test(source)) {
+    return "美联储利率决议临近之际，以太坊价格走势趋于停滞";
+  }
+
+  if (/^South Korean crypto trading surges amid stock market plunge$/i.test(source)) {
+    return "韩国股市大跌之际，当地加密货币交易量激增";
+  }
+
+  if (/^Japanese game developer launches Bitcoin, altcoin fund with SBI$/i.test(source)) {
+    return "日本游戏开发商与 SBI 合作推出比特币和山寨币基金";
+  }
+
+  if (/^Chinese newspaper warns of Bitcoin extortion scam using its name$/i.test(source)) {
+    return "一家中国报纸警告，有人冒用其名义实施比特币敲诈骗局";
+  }
+
   if (/^Fed decision headlines two weeks of inflation and jobs data$/i.test(source)) {
     return "美联储利率决定领衔未来两周的通胀与就业数据";
   }
@@ -188,6 +344,7 @@ function naturalRewriteFromEnglish(source: string, translated: string) {
 
 function normalizeChineseHeadline(source: string, value: string) {
   let result = naturalRewriteFromEnglish(source, value)
+    .replace(/^法律资讯网站消息[：:]/, "据法律资讯网站报道，")
     .replace(/\s*,\s*/g, "，")
     .replace(/\s*:\s*/g, "：")
     .replace(/\s+([，。！？：；）】])/g, "$1")
@@ -212,9 +369,14 @@ function normalizeChineseHeadline(source: string, value: string) {
 export function isPublishableTranslatedHeadline(original: string, candidate: string, language: "zh" | "en") {
   const source = extractShareHeadline(original);
   const value = candidate.trim();
+  if (!isRigorousDigestHeadlineSource(original)) return false;
   if (!value || value.length < 6 || value.length > 140 || /[\r\n]/.test(value)) return false;
+  if (isMetaEditorialHeadline(value) || DANGLING_HEADLINE_END.test(value) || !hasBalancedHeadlinePairs(value)) return false;
   if (language === "zh") {
     if (!containsHan(value) || UNPUBLISHABLE_ZH_PATTERNS.some((pattern) => pattern.test(value))) return false;
+    if (!/\b(?:cause[sd]?|drive[sn]?|drove|trigger(?:s|ed)?|lead(?:s|ing)? to|because|push(?:es|ed)?)\b/i.test(source)
+      && /(?:导致|引发|促使)/.test(value)) return false;
+    if (/\b(?:alleged|allegedly)\b/i.test(source) && !/(?:涉嫌|据称|被控|指控|alleged)/i.test(value)) return false;
   } else if (containsHan(value) || /[-—–]\s*(?:currently|at present)\s*$/i.test(value)) {
     return false;
   }
@@ -228,6 +390,10 @@ export function isPublishableTranslatedHeadline(original: string, candidate: str
     const actualCount = countTargetMentions(value, rule.targets);
     if (actualCount !== expectedCount) return false;
   }
+  const sourceEntitySequence = collectSourceEntitySequence(source, true);
+  const candidateEntitySequence = collectCandidateEntitySequence(value, true);
+  if (sourceEntitySequence.length > 1
+    && sourceEntitySequence.some((ruleIndex, index) => candidateEntitySequence[index] !== ruleIndex)) return false;
   return true;
 }
 

@@ -1,3 +1,4 @@
+import { areSameEditorialEvent } from "@/services/editorialSharing";
 import type { DailyHotspot, EditorialFeedItem, HotspotCategory } from "@/types/market";
 
 type EditorialCluster = {
@@ -40,24 +41,6 @@ function chinaDayKey(value = new Date()) {
   }).format(value);
 }
 
-function titleBigrams(value: string) {
-  const compact = value.toLowerCase().replace(/[\s\p{P}\p{S}]+/gu, "");
-  const grams = new Set<string>();
-  for (let index = 0; index < compact.length - 1; index += 1) grams.add(compact.slice(index, index + 2));
-  return grams;
-}
-
-function titleSimilarity(left: string, right: string) {
-  const leftGrams = titleBigrams(left);
-  const rightGrams = titleBigrams(right);
-  if (leftGrams.size === 0 || rightGrams.size === 0) return 0;
-  let overlap = 0;
-  leftGrams.forEach((gram) => {
-    if (rightGrams.has(gram)) overlap += 1;
-  });
-  return overlap / Math.min(leftGrams.size, rightGrams.size);
-}
-
 function freshnessScore(publishedAt: string) {
   const ageHours = Math.max(0, (Date.now() - Date.parse(publishedAt)) / 3_600_000);
   return Math.max(0, 24 - ageHours / 3);
@@ -94,8 +77,7 @@ function clusterItems(items: EditorialFeedItem[]) {
     const match = clusters.find((cluster) => {
       if (cluster.primary.category !== item.category) return false;
       if (cluster.items.some((entry) => entry.source === item.source)) return false;
-      const sharedAsset = item.relatedAssets.some((asset) => cluster.primary.relatedAssets.includes(asset));
-      return titleSimilarity(cluster.primary.title, item.title) >= (sharedAsset ? 0.35 : 0.52);
+      return areSameEditorialEvent(cluster.primary.title, item.title);
     });
     if (match) {
       match.items.push(item);
