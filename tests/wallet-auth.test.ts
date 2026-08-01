@@ -3,6 +3,7 @@ import test from "node:test";
 import { verifyMessage } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { createSiweMessage, parseSiweMessage } from "viem/siwe";
+import { isAllowedRequestOrigin } from "../services/accountSecurity.ts";
 
 const account = privateKeyToAccount("0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80");
 
@@ -21,4 +22,10 @@ test("rejects a signature replayed against a changed domain", async () => {
   const message = createSiweMessage({ address: account.address, chainId: 1, domain: "stonedaily.xyz", nonce: "ffeeddccbbaa99887766554433221100", uri: "https://stonedaily.xyz", version: "1" });
   const signature = await account.signMessage({ message });
   assert.equal(await verifyMessage({ address: account.address, message: message.replace("stonedaily.xyz", "example.com"), signature }), false);
+});
+
+test("accepts the public origin behind Railway's forwarded host", () => {
+  const request = { configuredOrigin: "https://stonedaily.xyz", forwardedHost: "stonedaily.xyz", origin: "https://stonedaily.xyz", requestHost: "stone-daily.railway.internal", urlHost: "stone-daily.railway.internal" };
+  assert.equal(isAllowedRequestOrigin(request), true);
+  assert.equal(isAllowedRequestOrigin({ ...request, origin: "https://example.com" }), false);
 });

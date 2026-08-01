@@ -5,6 +5,7 @@ import { Pool } from "pg";
 import type { NextRequest } from "next/server";
 import { getAddress, isAddress, verifyMessage, type Address, type Hex } from "viem";
 import { createSiweMessage } from "viem/siwe";
+import { isAllowedRequestOrigin } from "@/services/accountSecurity";
 import type { AccountSyncSnapshot, StoneSyncPayload } from "@/types/account";
 import type { CalmRecord, MarketAlert, MarketAlertKind, UIMode } from "@/types/market";
 
@@ -240,7 +241,11 @@ export function sessionAccountId(request: NextRequest) {
 }
 
 export function isSameOrigin(request: NextRequest) {
-  const origin = request.headers.get("origin");
-  if (!origin) return true;
-  try { return new URL(origin).host === request.nextUrl.host; } catch { return false; }
+  return isAllowedRequestOrigin({
+    configuredOrigin: process.env.STONE_PUBLIC_ORIGIN,
+    forwardedHost: request.headers.get("x-forwarded-host"),
+    origin: request.headers.get("origin"),
+    requestHost: request.headers.get("host"),
+    urlHost: request.nextUrl.host,
+  });
 }
