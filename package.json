@@ -8,16 +8,20 @@
     "market:stream": "node workers/market-stream.mjs",
     "start": "next start",
     "test:editorial": "node --experimental-strip-types --test --test-isolation=none tests/editorial-sharing.test.ts",
+    "test:product": "node --experimental-strip-types --test --test-isolation=none tests/asset-identity.test.ts tests/editorial-sharing.test.ts tests/wallet-auth.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.10",
     "next": "^15.5.7",
+    "pg": "^8.22.0",
     "react": "^19.1.0",
-    "react-dom": "^19.1.0"
+    "react-dom": "^19.1.0",
+    "viem": "^2.55.10"
   },
   "devDependencies": {
     "@types/node": "^22.15.3",
+    "@types/pg": "^8.20.3",
     "@types/react": "^19.1.2",
     "@types/react-dom": "^19.1.2",
     "autoprefixer": "^10.4.21",

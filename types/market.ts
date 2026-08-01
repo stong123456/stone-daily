@@ -6,6 +6,7 @@ export type UIMode = "brief" | "lens" | "calm";
 
 export interface MarketAsset {
   id: string;
+  canonicalId?: string;
   name: string;
   symbol: string;
   price: number;
@@ -98,6 +99,9 @@ export interface DailyHotspot {
   summary: string;
   whyItMatters: string;
   riskNote: string;
+  confirmedFacts?: string[];
+  inference?: string;
+  marketReaction?: string;
   relatedAssets: string[];
   heat: number;
   confidence: "多源一致" | "官方确认" | "单一来源" | "待复核";
@@ -256,4 +260,70 @@ export interface CalmRecord {
   type: "regret" | "detox";
   createdAt: string;
   summary: string;
+}
+
+export type MarketAlertKind = "price-above" | "price-below" | "move-up" | "move-down" | "news" | "funding";
+
+export interface MarketAlert {
+  id: string;
+  assetId: string;
+  symbol: string;
+  name: string;
+  market: MarketKind;
+  kind: MarketAlertKind;
+  threshold?: number;
+  enabled: boolean;
+  createdAt: string;
+  lastTriggeredAt?: string;
+}
+
+export interface AlertEvent {
+  id: string;
+  alertId: string;
+  symbol: string;
+  message: string;
+  createdAt: string;
+  read: boolean;
+}
+
+export interface AssetEvidenceChain {
+  confirmedFacts: string[];
+  observations: string[];
+  possibleExplanations: string[];
+  unconfirmed: string[];
+  sources: Array<{ name: string; url?: string; asOf?: string }>;
+}
+
+export interface ProductIdentity {
+  productType: MarketProductType;
+  label: string;
+  issuer: string;
+  custody: string;
+  holderRights: string;
+  tradingHours: string;
+  dividendTreatment: string;
+  regionalLimits: string;
+  backing: string;
+  sourceUrl?: string;
+}
+
+export interface DataProviderStatus {
+  name: string;
+  surface: "crypto" | "stocks" | "editorial" | "calendar";
+  status: "live" | "cached" | "catalog" | "fallback" | "unavailable";
+  itemCount: number;
+  latencyMs?: number;
+  updatedAt?: string;
+  url?: string;
+}
+
+export interface DataTrustSnapshot {
+  updatedAt: string;
+  overall: "healthy" | "partial" | "degraded";
+  providers: DataProviderStatus[];
+  checks: {
+    live: number;
+    total: number;
+    oldestAgeSeconds: number;
+  };
 }

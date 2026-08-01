@@ -122,6 +122,14 @@ test("rejects entity reordering, unsupported causality and lost uncertainty", ()
   );
 });
 
+test("rejects partially translated Chinese headlines with an English sentence skeleton", () => {
+  assert.equal(isPublishableTranslatedHeadline(
+    "Google yanks Google Earth AI image tool one day after launch over deepfake fears",
+    "Google Yanks Google Earth AI 图像工具在 Deepfake Fears 发布后的第二天推出",
+    "zh",
+  ), false);
+});
+
 test("clusters only the same event, not unrelated stories sharing an asset", () => {
   assert.equal(
     areSameEditorialEvent(

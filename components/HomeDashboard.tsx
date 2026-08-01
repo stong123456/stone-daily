@@ -25,7 +25,7 @@ import { MarketTemperatureCard } from "@/components/MarketTemperatureCard";
 import { allAssets, cryptoData, stockData } from "@/data/market";
 import { formatPercent, formatPrice } from "@/services/format";
 import { fetchMarketFeed } from "@/services/marketProviders";
-import { buildMarketWeather, type LiveMarketWeather } from "@/services/marketWeather";
+import { buildMarketWeather, canonicalAssetId, canonicalAssetSymbol, isWatchedAsset, type LiveMarketWeather } from "@/services/marketWeather";
 import { localizeAssetCopy, localizeMarketWeather } from "@/services/localization";
 import type { MarketAsset } from "@/types/market";
 
@@ -69,21 +69,22 @@ function HomeMarketSpotlight({ assets, feedLabel, weather }: { assets: MarketAss
         <div className="home-market-spotlight__rows">
           {assets.map((asset) => {
             const copy = localizeAssetCopy(asset, language);
+            const watched = isWatchedAsset(watchlistIds, asset);
             return (
             <div className="home-market-spotlight__row" key={asset.id} role="row">
-              <div className="home-market-spotlight__asset" role="cell"><AssetLogo asset={asset} size={32} /><span><strong>{asset.symbol}</strong><small>{copy.name}</small></span></div>
+              <Link className="home-market-spotlight__asset" href={`/asset/${encodeURIComponent(canonicalAssetSymbol(asset))}`} role="cell"><AssetLogo asset={asset} size={32} /><span><strong>{asset.symbol}</strong><small>{copy.name}</small></span></Link>
               <div className="home-market-spotlight__price" role="cell"><strong>{formatPrice(asset.price)}</strong><small>{copy.narrative}</small></div>
               <strong className={asset.change24h >= 0 ? "is-positive" : "is-negative"} role="cell">{formatPercent(asset.change24h)}</strong>
               <span className="home-market-spotlight__venue" role="cell">{asset.venue ?? (asset.market === "crypto" ? (en ? "Multi-venue aggregate" : "多交易所聚合") : (en ? "Tokenized-stock aggregate" : "币股聚合"))}</span>
               <div className="home-market-spotlight__signal" role="cell"><span className="status-tag">{copy.aiTag}</span><small>{copy.aiHint}</small></div>
               <div className="home-market-spotlight__actions" role="cell">
-                <Link className="row-action" href="/markets"><Brain size={15} />{en ? "AI brief" : "AI 解读"}</Link>
-                <button aria-label={watchlistIds.includes(asset.id) ? (en ? `Remove ${asset.symbol} from watchlist` : `移除 ${asset.symbol} 自选`) : (en ? `Add ${asset.symbol} to watchlist` : `将 ${asset.symbol} 加入自选`)} className="row-action row-action--icon" data-active={watchlistIds.includes(asset.id)} onClick={() => toggleWatchlist(asset.id)} type="button"><Star size={16} weight={watchlistIds.includes(asset.id) ? "fill" : "regular"} /></button>
+                <Link className="row-action" href={`/asset/${encodeURIComponent(canonicalAssetSymbol(asset))}`}><Brain size={15} />{en ? "AI brief" : "AI 解读"}</Link>
+                <button aria-label={watched ? (en ? `Remove ${asset.symbol} from watchlist` : `移除 ${asset.symbol} 自选`) : (en ? `Add ${asset.symbol} to watchlist` : `将 ${asset.symbol} 加入自选`)} className="row-action row-action--icon" data-active={watched} onClick={() => toggleWatchlist(canonicalAssetId(asset), asset.id)} type="button"><Star size={16} weight={watched ? "fill" : "regular"} /></button>
               </div>
             </div>
           )})}
         </div>
-        <div className="home-market-spotlight__foot"><span>{en ? "Add more assets and build a watchlist stored on this device." : "支持自选与更多资产添加，创建你自己的关注列表。"}</span><Link href="/markets">{en ? "Manage watchlist" : "自选管理"} <ArrowRight size={14} /></Link></div>
+        <div className="home-market-spotlight__foot"><span>{en ? "Add more assets and build a watchlist stored on this device." : "支持自选与更多资产添加，创建你自己的关注列表。"}</span><Link href="/watchlist">{en ? "Manage watchlist" : "自选管理"} <ArrowRight size={14} /></Link></div>
       </div>
       <aside className="home-market-spotlight__metrics" aria-label={en ? "Live market metrics" : "实时市场指标"}>
         <article><small>{en ? "Market breadth" : "市场广度"}</small><strong>{weather.breadth}<span>/100</span></strong><div className="meter"><span style={{ width: `${weather.breadth}%` }} /></div><p>{en ? "Tokenized stocks" : "币股"} {weather.stockBreadth}% · {en ? "Crypto" : "币圈"} {weather.cryptoBreadth}%</p></article>

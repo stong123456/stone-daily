@@ -10,7 +10,7 @@ export function Watchlist({ assets, loadingId, onExplain, onCalm, onToggleWatchl
   loadingId: string | null;
   onExplain: (asset: MarketAsset) => void;
   onCalm: (asset: MarketAsset) => void;
-  onToggleWatchlist: (id: string) => void;
+  onToggleWatchlist: (id: string, legacyId?: string) => void;
 }) {
   const { language } = useAppState();
   const en = language === "en";

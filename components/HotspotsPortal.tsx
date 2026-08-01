@@ -14,9 +14,11 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useAppState } from "@/components/AppStateProvider";
 import { buildDailyHotspots } from "@/services/editorialRanking";
-import type { EditorialFeedSnapshot, HotspotCategory } from "@/types/market";
+import { isRigorousDigestHeadlineSource, isShareableMarketStory } from "@/services/editorialSharing";
+import { trackProductEvent } from "@/services/analytics";
+import type { EditorialFeedItem, EditorialFeedSnapshot, HotspotCategory } from "@/types/market";
 
-const categories: Array<"全部" | HotspotCategory> = ["全部", "宏观", "币股", "币圈", "科技", "监管"];
+const categories: Array<"全部" | HotspotCategory> = ["全部", "币圈", "币股", "监管", "宏观", "科技"];
 
 const categoryLabels: Record<(typeof categories)[number], string> = {
   全部: "All",
@@ -113,7 +115,23 @@ export function HotspotsPortal() {
   }, []);
 
   const languageItems = useMemo(
-    () => (snapshot?.items ?? []).filter((item) => matchesLanguage(item.title, language)),
+    () => {
+      if (!snapshot) return [];
+      const digestItems: EditorialFeedItem[] = (snapshot.digests?.[language]?.items ?? []).flatMap((item) => item.sources.map((source, index) => ({
+        id: `digest-${language}-${item.id}-${index}`,
+        source: source.name,
+        sourceType: "媒体" as const,
+        category: item.category,
+        title: item.title,
+        summary: "",
+        url: source.url,
+        publishedAt: item.publishedAt,
+        relatedAssets: item.relatedAssets,
+        urgency: "重要" as const,
+      })));
+      const nativeItems = snapshot.items.filter((item) => matchesLanguage(item.title, language) && isShareableMarketStory(item) && isRigorousDigestHeadlineSource(item.title));
+      return [...digestItems, ...nativeItems];
+    },
     [language, snapshot],
   );
   const rankedHotspots = useMemo(() => buildDailyHotspots(languageItems, 5, language), [language, languageItems]);
@@ -140,6 +158,7 @@ export function HotspotsPortal() {
 
   const copyDigest = async () => {
     const success = await writeClipboardText(shareText);
+    if (success) trackProductEvent("digest_copy", { count: shareItems.length });
     setCopied(success);
     setCopyFailed(!success);
     window.setTimeout(() => {
@@ -180,9 +199,9 @@ export function HotspotsPortal() {
                 <div className="hotspot-card__meta"><span>{isEnglish ? categoryLabels[item.category] : item.category}</span><span data-confidence={item.confidence}>{isEnglish ? confidenceLabels[item.confidence] : item.confidence}</span><time>{formatChinaTime(item.publishedAt, language)}</time></div>
                 <h2>{item.title}</h2>
                 <p>{item.summary}</p>
-                <div className="hotspot-insight"><strong>{isEnglish ? "Why it matters" : "为什么重要"}</strong><span>{item.whyItMatters}</span></div>
-                <div className="hotspot-risk"><WarningCircle size={17} /><span>{item.riskNote}</span></div>
-                <div className="hotspot-card__footer"><div>{item.relatedAssets.map((asset) => <span key={asset}>{asset}</span>)}</div><div>{item.sources.map((source) => <a href={source.url} key={source.name} rel="noreferrer" target="_blank">{source.name}<ArrowSquareOut size={13} /></a>)}</div></div>
+                <div className="hotspot-evidence-grid"><div data-tone="fact"><strong>{isEnglish ? "Confirmed facts" : "已确认事实"}</strong><ul>{(item.confirmedFacts ?? [item.title]).map((fact) => <li key={fact}>{fact}</li>)}</ul></div><div data-tone="inference"><strong>{isEnglish ? "Market relevance · inference" : "市场相关性 · 推断"}</strong><span>{item.inference ?? item.whyItMatters}</span></div><div data-tone="reaction"><strong>{isEnglish ? "Price response" : "价格反应"}</strong><span>{item.marketReaction ?? (isEnglish ? "Verify related price, volume and venue consistency before attributing a move." : "归因前请核对相关资产的价格、量能与跨所一致性。")}</span></div></div>
+                <div className="hotspot-risk"><WarningCircle size={17} /><span><strong>{isEnglish ? "Still unconfirmed: " : "尚待确认："}</strong>{item.riskNote}</span></div>
+                <div className="hotspot-card__footer"><div>{item.relatedAssets.map((asset) => <Link href={`/asset/${encodeURIComponent(asset)}`} key={asset}>{asset}</Link>)}</div><div>{item.sources.map((source) => <a href={source.url} key={source.name} rel="noreferrer" target="_blank">{source.name}<ArrowSquareOut size={13} /></a>)}</div></div>
               </div>
             </article>
           )) : (

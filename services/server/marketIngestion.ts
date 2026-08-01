@@ -12,6 +12,7 @@ import {
   type ProviderSummary,
 } from "@/services/server/exchangeMarketAdapters";
 import { readCachedJson, SNAPSHOT_KEYS, writeCachedJson, type CachedValue } from "@/services/server/marketSnapshotStore";
+import { canonicalAssetId } from "@/services/marketWeather";
 import type { MarketAsset, StreamQuoteSnapshot } from "@/types/market";
 
 export type MarketFeedKind = "crypto" | "stocks";
@@ -49,7 +50,7 @@ function matchesQuery(asset: MarketAsset, query: string) {
 }
 
 function uniqueAssets(assets: MarketAsset[]) {
-  return Array.from(new Map(assets.map((asset) => [asset.id, asset])).values());
+  return Array.from(new Map(assets.map((asset) => [asset.id, { ...asset, canonicalId: canonicalAssetId(asset) }])).values());
 }
 
 async function runAdapters(adapters: MarketProviderAdapter[]): Promise<ProviderOutcome[]> {
@@ -95,7 +96,7 @@ async function collectCrypto(query: string): Promise<MarketSnapshotEnvelope> {
   return {
     version: 2,
     kind: "crypto",
-    assets: expandedCryptoData.filter((asset) => matchesQuery(asset, query)).map((asset) => ({ ...asset, feedMode: "fallback" })),
+    assets: expandedCryptoData.filter((asset) => matchesQuery(asset, query)).map((asset) => ({ ...asset, canonicalId: canonicalAssetId(asset), feedMode: "fallback" })),
     providers,
     source: "Stone Daily 币圈演示目录",
     mode: "fallback",
@@ -159,7 +160,7 @@ async function collectStocks(query: string): Promise<MarketSnapshotEnvelope> {
   return {
     version: 2,
     kind: "stocks",
-    assets: expandedStockData.filter((asset) => matchesQuery(asset, query)).map((asset) => ({ ...asset, feedMode: "fallback" })),
+    assets: expandedStockData.filter((asset) => matchesQuery(asset, query)).map((asset) => ({ ...asset, canonicalId: canonicalAssetId(asset), feedMode: "fallback" })),
     providers,
     source: "Stone Daily 币股演示目录",
     mode: "fallback",

@@ -3,6 +3,7 @@
 import type { MarketAsset } from "@/types/market";
 import { AssetRow } from "@/components/AssetRow";
 import { useAppState } from "@/components/AppStateProvider";
+import { isWatchedAsset } from "@/services/marketWeather";
 
 export function MarketTable({ assets, watchlistIds, loadingId, onExplain, onCalm, onToggleWatchlist }: {
   assets: MarketAsset[];
@@ -10,7 +11,7 @@ export function MarketTable({ assets, watchlistIds, loadingId, onExplain, onCalm
   loadingId: string | null;
   onExplain: (asset: MarketAsset) => void;
   onCalm: (asset: MarketAsset) => void;
-  onToggleWatchlist: (id: string) => void;
+  onToggleWatchlist: (id: string, legacyId?: string) => void;
 }) {
   const { language } = useAppState();
   const en = language === "en";
@@ -27,7 +28,7 @@ export function MarketTable({ assets, watchlistIds, loadingId, onExplain, onCalm
       {assets.map((asset) => (
         <AssetRow
           asset={asset}
-          isWatched={watchlistIds.includes(asset.id)}
+          isWatched={isWatchedAsset(watchlistIds, asset)}
           key={asset.id}
           loading={loadingId === asset.id}
           onCalm={onCalm}

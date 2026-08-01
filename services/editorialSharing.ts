@@ -374,6 +374,8 @@ export function isPublishableTranslatedHeadline(original: string, candidate: str
   if (isMetaEditorialHeadline(value) || DANGLING_HEADLINE_END.test(value) || !hasBalancedHeadlinePairs(value)) return false;
   if (language === "zh") {
     if (!containsHan(value) || UNPUBLISHABLE_ZH_PATTERNS.some((pattern) => pattern.test(value))) return false;
+    const untranslatedLatinWords = value.match(/\b[A-Za-z][A-Za-z'-]{2,}\b/g) ?? [];
+    if (untranslatedLatinWords.length > 4) return false;
     if (!/\b(?:cause[sd]?|drive[sn]?|drove|trigger(?:s|ed)?|lead(?:s|ing)? to|because|push(?:es|ed)?)\b/i.test(source)
       && /(?:导致|引发|促使)/.test(value)) return false;
     if (/\b(?:alleged|allegedly)\b/i.test(source) && !/(?:涉嫌|据称|被控|指控|alleged)/i.test(value)) return false;

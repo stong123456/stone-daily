@@ -54,6 +54,14 @@ export function canonicalAssetSymbol(asset: MarketAsset) {
   return raw;
 }
 
+export function canonicalAssetId(asset: MarketAsset) {
+  return asset.canonicalId || `${asset.market}:${canonicalAssetSymbol(asset)}`;
+}
+
+export function isWatchedAsset(watchlistIds: string[], asset: MarketAsset) {
+  return watchlistIds.includes(canonicalAssetId(asset)) || watchlistIds.includes(asset.id);
+}
+
 export function uniqueMarketAssets(assets: MarketAsset[]) {
   const bySymbol = new Map<string, MarketAsset>();
   for (const asset of assets) {

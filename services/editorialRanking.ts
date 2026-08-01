@@ -1,4 +1,4 @@
-import { areSameEditorialEvent } from "@/services/editorialSharing";
+import { areSameEditorialEvent, isRigorousDigestHeadlineSource, isShareableMarketStory } from "@/services/editorialSharing";
 import type { DailyHotspot, EditorialFeedItem, HotspotCategory } from "@/types/market";
 
 type EditorialCluster = {
@@ -92,8 +92,9 @@ function clusterItems(items: EditorialFeedItem[]) {
 
 export function buildDailyHotspots(items: EditorialFeedItem[], limit = 5, language: "zh" | "en" = "zh"): DailyHotspot[] {
   const cutoff = Date.now() - 72 * 3_600_000;
-  const recentItems = items.filter((item) => Date.parse(item.publishedAt) >= cutoff);
-  const sourceItems = recentItems.length >= 3 ? recentItems : items;
+  const marketItems = items.filter((item) => isShareableMarketStory(item) && isRigorousDigestHeadlineSource(item.title));
+  const recentItems = marketItems.filter((item) => Date.parse(item.publishedAt) >= cutoff);
+  const sourceItems = recentItems.length >= 3 ? recentItems : marketItems;
   const selected: EditorialCluster[] = [];
   const categoryCounts = new Map<HotspotCategory, number>();
 
@@ -115,14 +116,23 @@ export function buildDailyHotspots(items: EditorialFeedItem[], limit = 5, langua
       if (!sourceMap.has(entry.source)) sourceMap.set(entry.source, { name: entry.source, url: entry.url });
     });
     const sources = [...sourceMap.values()];
+    const confirmedFacts = cluster.items.slice(0, 3).map((entry) => language === "en"
+      ? `${entry.source} reported: ${entry.title}`
+      : `${entry.source} 报道：${entry.title}`);
+    const why = (language === "en" ? WHY_IT_MATTERS_EN : WHY_IT_MATTERS)[category](assets.join(language === "en" ? ", " : "、"));
     return {
       id: `${chinaDayKey()}-${item.id}`,
       rank: index + 1,
       category,
       title: item.title,
       summary: item.summary || (language === "en" ? `Latest information from ${item.source}; the original source and publication time are preserved.` : `来自${item.source}的最新信息，原始来源与发布时间已保留。`),
-      whyItMatters: (language === "en" ? WHY_IT_MATTERS_EN : WHY_IT_MATTERS)[category](assets.join(language === "en" ? ", " : "、")),
+      whyItMatters: why,
       riskNote: riskNote(cluster, language),
+      confirmedFacts,
+      inference: language === "en" ? `${why} This is a relevance hypothesis, not a proven price cause.` : `${why} 这是相关性推断，不是已经证明的价格因果。`,
+      marketReaction: language === "en"
+        ? `Stone Daily has not automatically attributed a price move to this headline. Compare the related assets' 24-hour price, volume and venue consistency on their detail pages.`
+        : "Stone Daily 不会自动把某次涨跌归因给这条新闻；请到相关资产详情页核对 24 小时价格、量能与跨所一致性。",
       relatedAssets: assets,
       heat: Math.min(99, Math.round(52 + cluster.score * 0.65)),
       confidence: item.sourceType === "官方" ? "官方确认" : cluster.items.length > 1 ? "多源一致" : "单一来源",

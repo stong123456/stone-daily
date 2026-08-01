@@ -14,7 +14,7 @@ import { expandedCryptoData, expandedStockData, marketUniverse } from "@/data/ex
 import { buildAssetCalmPrompt, generateAssetExplanation } from "@/services/aiAnalysis";
 import { fetchMarketFeed, type MarketFeedResult, type MarketProviderSummary } from "@/services/marketProviders";
 import { calculateMarketSpreads, mergeStreamQuotes } from "@/services/marketStream";
-import { buildMarketWeather } from "@/services/marketWeather";
+import { buildMarketWeather, canonicalAssetId, isWatchedAsset } from "@/services/marketWeather";
 import { localizeMarketWeather } from "@/services/localization";
 import type { AIExplanation, MarketAsset, MarketSpread, StreamQuoteSnapshot, StreamingSummary } from "@/types/market";
 
@@ -196,7 +196,10 @@ export function MarketExplorer() {
     if (tab === "crypto") return searchAssets ?? cryptoFeed ?? expandedCryptoData;
     if (tab === "stocks") return searchAssets ?? stockFeed ?? expandedStockData;
     const currentUniverse = [...(cryptoFeed ?? expandedCryptoData), ...(stockFeed ?? expandedStockData), ...marketUniverse];
-    return Array.from(new Map(currentUniverse.map((asset) => [asset.id, asset])).values()).filter((asset) => watchlistIds.includes(asset.id));
+    const watchedAssets = Array.from(new Map(currentUniverse.map((asset) => [asset.id, asset])).values())
+      .filter((asset) => isWatchedAsset(watchlistIds, asset))
+      .sort((left, right) => right.volume - left.volume);
+    return Array.from(new Map(watchedAssets.map((asset) => [canonicalAssetId(asset), asset])).values());
   }, [cryptoFeed, deferredQuery, remoteSearch, stockFeed, tab, watchlistIds]);
 
   const sectors = useMemo(() => ["全部", ...Array.from(new Set(baseAssets.map((asset) => asset.sector).filter(Boolean) as string[]))], [baseAssets]);
