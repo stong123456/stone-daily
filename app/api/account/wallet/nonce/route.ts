@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { accountSyncAvailable, allowAccountAttempt, createWalletChallenge, isSameOrigin, normalizeWalletAddress } from "@/services/server/accountStore";
+import { accountSyncAvailable, allowAccountAttempt, createWalletChallenge, isSameOrigin, logAccountServiceError, normalizeWalletAddress } from "@/services/server/accountStore";
 
 export const dynamic = "force-dynamic";
 
@@ -13,5 +13,5 @@ export async function POST(request: NextRequest) {
     if (!address || !Number.isSafeInteger(chainId) || chainId <= 0) return NextResponse.json({ error: "invalid_wallet" }, { status: 400 });
     if (!allowAccountAttempt(request, address)) return NextResponse.json({ error: "rate_limited" }, { status: 429 });
     return NextResponse.json(await createWalletChallenge(request, address, chainId), { headers: { "Cache-Control": "no-store" } });
-  } catch { return NextResponse.json({ error: "account_service_error" }, { status: 503 }); }
+  } catch (error) { logAccountServiceError("wallet_nonce", error); return NextResponse.json({ error: "account_service_error" }, { status: 503 }); }
 }

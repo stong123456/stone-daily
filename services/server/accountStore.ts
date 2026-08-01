@@ -40,6 +40,21 @@ function sessionSecret() {
 
 export function accountSyncAvailable() { return Boolean(databaseUrl() && sessionSecret()); }
 
+export function logAccountServiceError(area: string, error: unknown) {
+  const details = error && typeof error === "object" ? error as { code?: unknown; name?: unknown; message?: unknown } : {};
+  const rawMessage = typeof details.message === "string" ? details.message : "Unknown account service failure";
+  const message = rawMessage
+    .replace(/postgres(?:ql)?:\/\/[^\s]+/gi, "[database-url-redacted]")
+    .replace(/password=[^\s]+/gi, "password=[redacted]")
+    .slice(0, 240);
+  console.error("stone_account_service_error", {
+    area,
+    code: typeof details.code === "string" ? details.code : "unknown",
+    name: typeof details.name === "string" ? details.name : "Error",
+    message,
+  });
+}
+
 function pool() {
   if (!accountSyncAvailable()) throw new Error("account_sync_unavailable");
   const globalState = globalThis as GlobalAccountState;

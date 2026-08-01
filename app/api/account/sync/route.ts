@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { accountSyncAvailable, isSameOrigin, sanitizeSyncPayload, sessionAccountId, updateAccountSync } from "@/services/server/accountStore";
+import { accountSyncAvailable, isSameOrigin, logAccountServiceError, sanitizeSyncPayload, sessionAccountId, updateAccountSync } from "@/services/server/accountStore";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +16,8 @@ export async function PUT(request: NextRequest) {
     const result = await updateAccountSync(accountId, payload, baseRevision);
     if (!result) return NextResponse.json({ error: "account_not_found" }, { status: 404 });
     return NextResponse.json({ account: result.snapshot, conflict: result.conflict }, { status: result.conflict ? 409 : 200, headers: { "Cache-Control": "no-store" } });
-  } catch {
+  } catch (error) {
+    logAccountServiceError("account_sync", error);
     return NextResponse.json({ error: "account_service_error" }, { status: 503 });
   }
 }

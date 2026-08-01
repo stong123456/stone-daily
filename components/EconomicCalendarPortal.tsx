@@ -9,7 +9,7 @@ import {
   Funnel,
   Info,
 } from "@phosphor-icons/react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAppState } from "@/components/AppStateProvider";
 import { fallbackEconomicEvents } from "@/data/economicCalendar";
 import type { EconomicCalendarSnapshot, EconomicEvent } from "@/types/market";
@@ -86,24 +86,40 @@ export function EconomicCalendarPortal() {
   const [region, setRegion] = useState<RegionFilter>("全球");
   const [importance, setImportance] = useState<ImportanceFilter>("全部");
   const [loadFailed, setLoadFailed] = useState(false);
-  const [now] = useState(() => new Date());
+  const [refreshing, setRefreshing] = useState(false);
+  const [now, setNow] = useState(() => new Date());
   const events = snapshot?.events ?? fallbackEconomicEvents;
 
+  const loadCalendar = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      const response = await fetch("/api/economic-calendar", { cache: "no-store" });
+      if (!response.ok) throw new Error("calendar unavailable");
+      setSnapshot(await response.json() as EconomicCalendarSnapshot);
+      setLoadFailed(false);
+    } catch {
+      setLoadFailed(true);
+    } finally {
+      setRefreshing(false);
+    }
+  }, []);
+
   useEffect(() => {
-    const controller = new AbortController();
-    fetch("/api/economic-calendar", { signal: controller.signal })
-      .then((response) => {
-        if (!response.ok) throw new Error("calendar unavailable");
-        return response.json() as Promise<EconomicCalendarSnapshot>;
-      })
-      .then((data) => {
-        setSnapshot(data);
-        setLoadFailed(false);
-      })
-      .catch((error: unknown) => {
-        if ((error as { name?: string }).name !== "AbortError") setLoadFailed(true);
-      });
-    return () => controller.abort();
+    void loadCalendar();
+    const interval = window.setInterval(() => void loadCalendar(), 5 * 60_000);
+    const refreshWhenVisible = () => { if (document.visibilityState === "visible") void loadCalendar(); };
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+    window.addEventListener("focus", refreshWhenVisible);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
+      window.removeEventListener("focus", refreshWhenVisible);
+    };
+  }, [loadCalendar]);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => setNow(new Date()), 30_000);
+    return () => window.clearInterval(interval);
   }, []);
 
   const filteredEvents = useMemo(
@@ -117,8 +133,9 @@ export function EconomicCalendarPortal() {
       }),
     [events, importance, now, range, region],
   );
-  const nextHighImpact = events.find((event) => event.importance === 3 && Date.parse(event.scheduledAt) > Date.now());
+  const nextHighImpact = events.find((event) => event.importance === 3 && Date.parse(event.scheduledAt) > now.getTime());
   const liveProviders = snapshot?.providers.filter((provider) => provider.status === "live").length ?? 0;
+  const refreshedAt = snapshot ? new Intl.DateTimeFormat(en ? "en-US" : "zh-CN", { timeZone: "Asia/Shanghai", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }).format(new Date(snapshot.updatedAt)) : "—";
 
   return (
     <>
@@ -133,7 +150,7 @@ export function EconomicCalendarPortal() {
       <section className="calendar-summary">
         <div><CalendarCheck size={23} weight="duotone" /><span><strong>{filteredEvents.length}</strong><small>{en ? "Filtered events" : "当前筛选事件"}</small></span></div>
         <div><span className="calendar-stars" aria-label={en ? "High impact" : "高影响"}>●●●</span><span><strong>{events.filter((event) => event.importance === 3 && Date.parse(event.scheduledAt) >= Date.now()).length}</strong><small>{en ? "Upcoming high-impact events" : "未来高影响事件"}</small></span></div>
-        <div className="calendar-feed-health">{snapshot ? <CheckCircle size={21} /> : <ArrowClockwise className="spin" size={21} />}<span><strong>{loadFailed ? (en ? "Catalogue mode" : "目录模式") : snapshot ? `${liveProviders} ${en ? "live sources" : "个实时源"}` : (en ? "Syncing" : "正在同步")}</strong><small>{snapshot ? `${snapshot.providers.length} ${en ? "official/data catalogues" : "个官方/数据目录"}` : (en ? "Connecting to official schedules" : "连接官方日程")}</small></span></div>
+        <div className="calendar-feed-health">{snapshot ? <CheckCircle size={21} /> : <ArrowClockwise className="spin" size={21} />}<span><strong>{loadFailed ? (en ? "Catalogue mode" : "目录模式") : snapshot ? `${liveProviders} ${en ? "live sources" : "个实时源"}` : (en ? "Syncing" : "正在同步")}</strong><small>{snapshot ? `${en ? "Updated" : "更新于"} ${refreshedAt} · ${snapshot.providers.length} ${en ? "sources" : "个来源"}` : (en ? "Connecting to official schedules" : "连接官方日程")}</small></span><button aria-label={en ? "Refresh economic calendar now" : "立即刷新财经日历"} disabled={refreshing} onClick={() => void loadCalendar()} type="button"><ArrowClockwise className={refreshing ? "spin" : ""} size={16} /></button></div>
       </section>
 
       <section className="calendar-workspace">

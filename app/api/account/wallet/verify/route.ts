@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { accountSyncAvailable, allowAccountAttempt, authenticateWallet, consumeWalletChallenge, createSessionToken, isSameOrigin, normalizeWalletAddress, sanitizeSyncPayload, SESSION_COOKIE, SESSION_MAX_AGE } from "@/services/server/accountStore";
+import { accountSyncAvailable, allowAccountAttempt, authenticateWallet, consumeWalletChallenge, createSessionToken, isSameOrigin, logAccountServiceError, normalizeWalletAddress, sanitizeSyncPayload, SESSION_COOKIE, SESSION_MAX_AGE } from "@/services/server/accountStore";
 import type { Hex } from "viem";
 
 export const dynamic = "force-dynamic";
@@ -21,5 +21,5 @@ export async function POST(request: NextRequest) {
     const response = NextResponse.json({ authenticated: true, account: result.account, created: result.created });
     response.cookies.set(SESSION_COOKIE, createSessionToken(result.accountId), { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/", maxAge: SESSION_MAX_AGE });
     return response;
-  } catch { return NextResponse.json({ error: "account_service_error" }, { status: 503 }); }
+  } catch (error) { logAccountServiceError("wallet_verify", error); return NextResponse.json({ error: "account_service_error" }, { status: 503 }); }
 }

@@ -168,9 +168,15 @@ async function loadTradingEconomicsCalendar(apiKey: string) {
 }
 
 function mergeEvents(groups: EconomicEvent[][]) {
-  const events = groups.flat().map((event) => ({
+  const now = Date.now();
+  const min = now - 2 * 86_400_000;
+  const max = now + 70 * 86_400_000;
+  const events = groups.flat().filter((event) => {
+    const timestamp = Date.parse(event.scheduledAt);
+    return Number.isFinite(timestamp) && timestamp >= min && timestamp <= max;
+  }).map((event) => ({
     ...event,
-    status: Date.parse(event.scheduledAt) <= Date.now() && event.status === "scheduled" ? "released" as const : event.status,
+    status: Date.parse(event.scheduledAt) <= now && event.status === "scheduled" ? "released" as const : event.status,
   }));
   const seen = new Set<string>();
   return events

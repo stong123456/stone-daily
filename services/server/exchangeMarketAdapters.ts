@@ -218,10 +218,10 @@ function krakenFuturesXStockUnderlying(instrument: KrakenFuturesInstrument) {
   return (suffixMatch?.[1] ?? instrument.base.replace(/x$/i, "")).toUpperCase();
 }
 
-async function fetchJson<T>(url: string, revalidate = 8, headers?: HeadersInit): Promise<T> {
+async function fetchJson<T>(url: string, revalidate = 8, headers?: HeadersInit, cacheMode: "next" | "no-store" = "next"): Promise<T> {
   const response = await fetch(url, {
     headers,
-    next: { revalidate },
+    ...(cacheMode === "no-store" ? { cache: "no-store" as const } : { next: { revalidate } }),
     signal: AbortSignal.timeout(6500),
   });
   if (!response.ok) throw new Error(`${new URL(url).hostname} ${response.status}`);
@@ -260,7 +260,7 @@ function cryptoAsset(input: {
 }
 
 async function fetchBinanceCrypto(): Promise<ProviderResult> {
-  const tickers = await fetchJson<BinanceTicker[]>("https://data-api.binance.vision/api/v3/ticker/24hr", 5);
+  const tickers = await fetchJson<BinanceTicker[]>("https://data-api.binance.vision/api/v3/ticker/24hr", 5, undefined, "no-store");
   const assets = tickers.flatMap((ticker): MarketAsset[] => {
     if (!ticker.symbol.endsWith("USDT")) return [];
     const symbol = ticker.symbol.replace(/USDT$/, "");
