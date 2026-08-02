@@ -18,15 +18,13 @@ const primaryItems = [
   { href: "/live", zh: "7×24", en: "7×24", Icon: Broadcast },
   { href: "/calendar", zh: "财经日历", en: "Calendar", Icon: CalendarCheck },
   { href: "/weather", zh: "市场天气", en: "Weather", Icon: CloudSun },
+  { href: "/today", zh: "历史上的今天", en: "On this day", Icon: CalendarDots },
+  { href: "/detox", zh: "热点拆弹", en: "Headline detox", Icon: Bomb },
   { href: "/regret", zh: "帮我冷静", en: "Pause", Icon: FirstAid },
 ];
 
 const moreGroups = [
-  { zh: "延伸阅读", en: "Explore", items: [
-    { href: "/today", zh: "历史上的今天", en: "On this day", Icon: CalendarDots },
-  ] },
-  { zh: "冷静工具", en: "Calm tools", items: [
-    { href: "/detox", zh: "热点拆弹", en: "Headline detox", Icon: Bomb },
+  { zh: "个人空间", en: "Personal", items: [
     { href: "/history", zh: "我的记录", en: "My records", Icon: Timer },
   ] },
   { zh: "关于产品", en: "About", items: [
