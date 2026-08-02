@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell, Bomb, BookOpenText, Broadcast, CalendarCheck, CalendarDots, CaretDown, ChartLineUp, CloudSun, FirstAid, List, Newspaper, ShieldCheck, Timer, X, XLogo } from "@phosphor-icons/react";
+import { Bell, Bomb, BookOpenText, Broadcast, CalendarCheck, CalendarDots, CaretDown, ChartLineUp, CloudSun, FirstAid, List, Newspaper, ShieldCheck, Timer, UserCircle, X, XLogo } from "@phosphor-icons/react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -25,6 +25,7 @@ const primaryItems = [
 
 const moreGroups = [
   { zh: "个人空间", en: "Personal", items: [
+    { href: "/account", zh: "个人中心", en: "My dashboard", Icon: UserCircle },
     { href: "/history", zh: "我的记录", en: "My records", Icon: Timer },
   ] },
   { zh: "关于产品", en: "About", items: [

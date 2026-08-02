@@ -7,9 +7,10 @@ Wallet sign-in is optional. Guests continue to use localStorage and JSON export/
 1. Add a PostgreSQL service to the same Railway project.
 2. Set `DATABASE_URL=${{Postgres.DATABASE_URL}}` on the Stone Daily web service.
 3. Set `STONE_SESSION_SECRET` to at least 32 cryptographically random characters.
+   `STONE_ANALYTICS_SALT` may be set to a separate 32+ character secret; when omitted, visitor analytics reuses `STONE_SESSION_SECRET` only as an HMAC key.
 4. Set `STONE_PUBLIC_ORIGIN=https://stonedaily.xyz` so every SIWE message is bound to the production domain.
 5. Set `STONE_ADMIN_WALLETS` to the comma-separated EVM wallet addresses allowed to use `/admin`.
-6. Redeploy. `stone_accounts` and `stone_wallet_nonces` are created or migrated lazily on the first account request.
+6. Redeploy. `stone_accounts`, `stone_wallet_nonces` and `stone_analytics_events` are created or migrated lazily on the first relevant request.
 7. Set `PGSSLMODE=require` only when the PostgreSQL endpoint requires TLS. Railway private networking normally does not need it.
 
 ## Wallet authentication
@@ -28,7 +29,8 @@ The login signature does not approve tokens, submit transactions, read balances 
 - It does not store signatures, private keys, seed phrases, balances, positions, exchange credentials or API keys.
 - Sync writes use optimistic revisions. A stale client receives HTTP 409 plus the current cloud copy and can choose local, cloud or merged resolution.
 - Every `/api/admin/*` request loads the signed-in account and checks its address against `STONE_ADMIN_WALLETS` on the server.
-- The current admin release is read-only: aggregate account/sync usage and data-provider health only. It does not expose user wallet lists or destructive controls.
+- The admin release is read-only: aggregate visitors, page views, content/feature usage, account adoption and data-provider health. It does not expose user wallet lists or destructive controls.
+- Visitor analytics stores only allow-listed events, route paths without query parameters, source domains, coarse browser/device categories and rotating salted hashes. Raw IP addresses, full user-agent strings and analytics cookies are not stored; aggregate rows are retained for 180 days.
 
 ## Operational check
 

@@ -13,7 +13,7 @@ export function TopWalletButton() {
   const en = language === "en";
 
   if (account) {
-    const destination = account.isAdmin ? "/admin" : "/watchlist";
+    const destination = account.isAdmin ? "/admin" : "/account";
     return <Link className="top-wallet-button" data-status="connected" href={destination} title={account.walletAddress}>
       {account.isAdmin ? <CrownSimple aria-hidden size={14} weight="fill" /> : <Wallet aria-hidden size={14} weight="fill" />}
       <span>{shortAddress(account.walletAddress)}</span>

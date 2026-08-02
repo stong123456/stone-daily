@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useAppState } from "@/components/AppStateProvider";
+import { trackProductEvent } from "@/services/analytics";
 import type { AccountSyncSnapshot, StoneSyncPayload } from "@/types/account";
 import type { CalmRecord, MarketAlert } from "@/types/market";
 
@@ -128,6 +129,7 @@ export function AccountSyncProvider({ children }: { children: React.ReactNode })
       const result = await verifyResponse.json() as { account?: AccountSyncSnapshot; error?: string };
       if (!verifyResponse.ok || !result.account) throw new Error(result.error || "wallet_login_failed");
       await applySignedInSnapshot(result.account);
+      trackProductEvent("wallet_connect", { chainId, admin: result.account.isAdmin });
       return true;
     } catch (reason) { setError(walletError(reason)); setStatus("error"); return false; }
   }, [applySignedInSnapshot, currentPayload]);
@@ -148,9 +150,9 @@ export function AccountSyncProvider({ children }: { children: React.ReactNode })
     return () => provider.removeListener?.("accountsChanged", changed);
   }, [account, logout]);
 
-  const pushLocal = useCallback(() => syncPayload(currentPayload()), [currentPayload, syncPayload]);
-  const pullCloud = useCallback(() => { if (!account) return; lastSyncedSignature.current = payloadSignature(account.payload); app.importAppData(account.payload); setStatus("synced"); }, [account, app]);
-  const mergeCloud = useCallback(async () => { if (!account) return; const merged = mergePayload(currentPayload(), account.payload); app.importAppData(merged); await syncPayload(merged); }, [account, app, currentPayload, syncPayload]);
+  const pushLocal = useCallback(() => { trackProductEvent("sync_action", { action: "push" }); return syncPayload(currentPayload()); }, [currentPayload, syncPayload]);
+  const pullCloud = useCallback(() => { if (!account) return; trackProductEvent("sync_action", { action: "pull" }); lastSyncedSignature.current = payloadSignature(account.payload); app.importAppData(account.payload); setStatus("synced"); }, [account, app]);
+  const mergeCloud = useCallback(async () => { if (!account) return; trackProductEvent("sync_action", { action: "merge" }); const merged = mergePayload(currentPayload(), account.payload); app.importAppData(merged); await syncPayload(merged); }, [account, app, currentPayload, syncPayload]);
 
   const value = useMemo(() => ({ available, status, account, error, connectWallet, logout, pushLocal, pullCloud, mergeCloud }), [account, available, connectWallet, error, logout, mergeCloud, pullCloud, pushLocal, status]);
   return <AccountSyncContext.Provider value={value}>{children}</AccountSyncContext.Provider>;
