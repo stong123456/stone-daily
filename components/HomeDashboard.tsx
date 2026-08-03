@@ -9,10 +9,14 @@ import {
   CheckCircle,
   CloudSun,
   Crown,
+  Broadcast,
   FirstAid,
   Gauge,
   Leaf,
+  ListChecks,
   Newspaper,
+  NotePencil,
+  Scales,
   ShieldCheck,
   Sparkle,
   Star,
@@ -20,7 +24,6 @@ import {
   TrendUp,
   UserCircle,
   Wallet,
-  WarningCircle,
 } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
@@ -34,11 +37,12 @@ import { allAssets, cryptoData, stockData } from "@/data/market";
 import { expandedCryptoData, expandedStockData } from "@/data/expandedMarket";
 import { useAIUsage } from "@/hooks/useAIUsage";
 import { buildAssetCalmPrompt, generateCachedAssetExplanation } from "@/services/aiAnalysis";
-import { buildDailyRankings, featuredCryptoSymbols, featuredStockSymbols, selectFeaturedAssets } from "@/services/dailyMarket";
+import { buildDailyRankings, buildFocusShortlist, featuredCryptoSymbols, featuredStockSymbols, selectFeaturedAssets } from "@/services/dailyMarket";
 import { formatPercent, formatPrice } from "@/services/format";
 import { fetchMarketFeed } from "@/services/marketProviders";
 import { buildMarketWeather, canonicalAssetId, canonicalAssetSymbol, isWatchedAsset, type LiveMarketWeather } from "@/services/marketWeather";
 import { localizeAssetCopy, localizeMarketWeather } from "@/services/localization";
+import { buildMarketShareContent } from "@/services/shareCard";
 import type { AIExplanation, CalmRecord, MarketAsset } from "@/types/market";
 
 const fallbackPreviewAssets = [cryptoData[0], cryptoData[1], cryptoData[2], stockData[2], stockData[3]];
@@ -86,29 +90,30 @@ function HomeMarketSpotlight({ cryptoAssets, stockAssets, allMarketAssets, feedL
       </div>
       <aside className="daily-market-side"><div className="daily-rankings"><RankingRail assets={rankings.gainers} kind="gain" /><RankingRail assets={rankings.losers} kind="loss" /><RankingRail assets={rankings.volumeSurges} kind="volume" /></div><article className="daily-weather"><div><CloudSun size={31} weight="duotone" /><span><small>{en ? "Live market weather" : "实时市场天气"}</small><strong>{weather.weather}</strong><em>{en ? `Breadth ${weather.breadth}/100` : `市场广度 ${weather.breadth}/100`}</em></span></div><dl><div><dt>{en ? "Sentiment" : "情绪温度"}</dt><dd>{weather.score}/100</dd></div><div><dt>FOMO</dt><dd>{weather.fomoIndex}/100</dd></div><div><dt>{en ? "Median move" : "中位波动"}</dt><dd>{weather.volatility}%</dd></div></dl><p>{weather.headline}</p><Link href="/weather">{en ? "Full weather report" : "完整市场天气"}<ArrowRight size={14} /></Link></article></aside>
     </div>
-    <footer className="daily-command__personal"><section><header><h3>{en ? `Watchlist (${watchlistIds.length})` : `自选资产（${watchlistIds.length}）`}</h3><Link href="/watchlist">{en ? "Manage" : "管理"}</Link></header>{watched.length ? <div>{watched.map((asset) => <Link href={`/asset/${canonicalAssetSymbol(asset)}`} key={canonicalAssetId(asset)}><AssetLogo asset={asset} size={23} /><strong>{canonicalAssetSymbol(asset)}</strong><em className={asset.change24h >= 0 ? "is-positive" : "is-negative"}>{formatPercent(asset.change24h)}</em></Link>)}</div> : <p>{en ? "Star a few assets you genuinely follow." : "先给真正需要持续关注的资产点亮星标。"}</p>}</section><section><header><h3>{en ? "Recent AI / pause records" : "最近 AI / 冷静记录"}</h3><Link href="/history">{en ? "View all" : "查看全部"}</Link></header>{records.length ? <ol>{records.slice(0, 3).map((record) => <li key={record.id}><span>{record.type === "ai" ? (en ? "AI" : "解读") : record.type === "regret" ? (en ? "Pause" : "冷静") : (en ? "Detox" : "拆弹")}</span><p>{record.summary}</p></li>)}</ol> : <p>{en ? "Your daily market journal starts with the first AI brief." : "第一次 AI 解读后，你的市场冷静日记就会从这里开始。"}</p>}</section><section className="daily-share"><header><h3>{en ? "Share today’s context" : "生成今日分享图"}</h3></header><p>{en ? "Turn market weather into a clean Stone Daily card for X." : "把今天的市场天气和一句人话做成适合发 X 的图片。"}</p><ShareCardButton compact content={{ kind: "daily", title: weather.weather, summary: weather.headline, detail: en ? "Live market snapshot · Not investment advice" : "实时市场快照｜不构成投资建议" }} /></section></footer>
+    <footer className="daily-command__personal"><section><header><h3>{en ? `Watchlist (${watchlistIds.length})` : `自选资产（${watchlistIds.length}）`}</h3><Link href="/watchlist">{en ? "Manage" : "管理"}</Link></header>{watched.length ? <div>{watched.map((asset) => <Link href={`/asset/${canonicalAssetSymbol(asset)}`} key={canonicalAssetId(asset)}><AssetLogo asset={asset} size={23} /><strong>{canonicalAssetSymbol(asset)}</strong><em className={asset.change24h >= 0 ? "is-positive" : "is-negative"}>{formatPercent(asset.change24h)}</em></Link>)}</div> : <p>{en ? "Star a few assets you genuinely follow." : "先给真正需要持续关注的资产点亮星标。"}</p>}</section><section><header><h3>{en ? "Recent AI / pause records" : "最近 AI / 冷静记录"}</h3><Link href="/history">{en ? "View all" : "查看全部"}</Link></header>{records.length ? <ol>{records.slice(0, 3).map((record) => <li key={record.id}><span>{record.type === "ai" ? (en ? "AI" : "解读") : record.type === "regret" ? (en ? "Pause" : "冷静") : (en ? "Detox" : "拆弹")}</span><p>{record.summary}</p></li>)}</ol> : <p>{en ? "Your daily market journal starts with the first AI brief." : "第一次 AI 解读后，你的市场冷静日记就会从这里开始。"}</p>}</section><section className="daily-share"><header><h3>{en ? "Share today’s context" : "生成今日分享图"}</h3></header><p>{en ? "Share weather, breadth, leaders, laggards and risk context in one X-ready image." : "把天气、市场广度、领涨领跌与风险线索合成一张适合发 X 的图片。"}</p><ShareCardButton compact content={buildMarketShareContent(weather, language)} /></section></footer>
   </section>;
 }
 
-function BriefDashboard({ weather }: { weather: LiveMarketWeather }) {
+function DailyFocusBoard({ assets, loadingId, onExplain }: { assets: MarketAsset[]; loadingId: string | null; onExplain: (asset: MarketAsset) => void }) {
   const { language } = useAppState();
   const en = language === "en";
+  const focusAssets = buildFocusShortlist(assets);
   return (
-    <section className="brief-dashboard" aria-label={en ? "Today's market overview" : "今日市场总览"}>
-      <div className="brief-dashboard__main">
-        <article className="weather-brief">
-          <img alt={weather.weather} src="/assets/market-weather.png" />
-          <div className="weather-brief__copy"><span>{en ? "Live market weather" : "实时市场天气"}</span><h2>{weather.weather}</h2><p>{weather.headline}</p></div>
-          <div className="weather-brief__score"><strong>{weather.score}</strong><span>/100</span><small>{weather.mode === "live" ? (en ? "Live composite" : "实时综合温度") : (en ? "Market reference" : "行情参考")}</small></div>
-          <div className="weather-brief__stats"><span><small>{en ? "Tokenized-stock temperature" : "币股温度"}</small><strong>{weather.stockTemperature} · {en ? "Breadth" : "广度"} {weather.stockBreadth}%</strong></span><span><small>{en ? "Crypto temperature" : "币圈温度"}</small><strong>{weather.cryptoTemperature} · {en ? "Breadth" : "广度"} {weather.cryptoBreadth}%</strong></span><span><small>{en ? "FOMO index" : "FOMO 指数"}</small><strong>{weather.fomoIndex} · {en ? "Median move" : "振幅"} {weather.volatility}%</strong></span></div>
-        </article>
+    <section className="daily-focus-board" aria-label={en ? "Today's focus list" : "今日关注清单"} data-testid="home-focus-board">
+      <div className="daily-focus-board__main">
+        <header className="daily-focus-board__heading"><div><span>{en ? "Today’s shortlist" : "今日关注清单"}</span><h2>{en ? `Start with these ${focusAssets.length} moves` : `先看这 ${focusAssets.length} 个异动`}</h2><p>{en ? "Selected from the popular crypto and tokenized-stock board by absolute 24-hour move. A move is a clue, not a recommendation." : "从热门币与热门币股中按 24 小时绝对振幅筛选。异动只是线索，不是推荐。"}</p></div><Link href="/markets">{en ? "Open all markets" : "查看完整行情"}<ArrowRight size={15} /></Link></header>
+        <div className="daily-focus-list">{focusAssets.map((asset, index) => {
+          const copy = localizeAssetCopy(asset, language);
+          return <article className="daily-focus-item" key={canonicalAssetId(asset)}>
+            <b>{String(index + 1).padStart(2, "0")}</b>
+            <AssetLogo asset={asset} size={38} />
+            <div className="daily-focus-item__asset"><span><strong>{canonicalAssetSymbol(asset)}</strong><small>{asset.venue ?? copy.name}</small></span><em className={asset.change24h >= 0 ? "is-positive" : "is-negative"}>{formatPercent(asset.change24h)}</em></div>
+            <p>{copy.aiHint}</p>
+            <div className="daily-focus-item__actions"><button className="row-action" disabled={loadingId === asset.id} onClick={() => onExplain(asset)} type="button"><Brain size={15} />{en ? "AI brief" : "AI 解读"}</button><Link className="row-action" href={`/asset/${encodeURIComponent(canonicalAssetSymbol(asset))}`}>{en ? "Evidence" : "查看依据"}<ArrowRight size={13} /></Link></div>
+          </article>;
+        })}</div>
       </div>
-      <aside className="risk-rail">
-        <div className="risk-rail__title"><WarningCircle size={21} /><h2>{en ? "Today's impulse check" : "今日上头提醒"}</h2></div>
-        <div className="risk-score"><span>{en ? "Sentiment temperature" : "情绪温度"}</span><strong>{weather.fomoIndex}<small>/100</small></strong><div className="meter"><span style={{ width: `${weather.fomoIndex}%` }} /></div><p>{en ? "Energy is elevated. Keep size and expectations inside your plan." : "有点兴奋，记得控制仓位与预期。"}</p></div>
-        <div className="risk-list"><h3>{en ? "Main risks to watch" : "主要风险关注"}</h3><p><strong>{en ? "Cross-market dispersion" : "跨市场分化"}</strong><span>{en ? "One venue may not represent the whole market." : "单一平台不代表全市场。"}</span></p><p><strong>{en ? "Volatility expansion" : "振幅扩大"}</strong><span>{en ? "Fast moves can magnify poor entries." : "快速波动会放大错误入场。"}</span></p><p><strong>{en ? "Crowded narratives" : "热门叙事拥挤"}</strong><span>{en ? "Popularity is not confirmation." : "热度不等于趋势确认。"}</span></p></div>
-        <blockquote>{en ? "“The trend may be intact. Slow the pace and protect the plan.”" : "“趋势未坏，节奏放慢，守住计划。”"}</blockquote>
-        <Link className="risk-rail__action" href="/regret"><CheckCircle size={19} /><span><strong>{en ? "Review first, decide second" : "先复盘，再决定"}</strong><small>{en ? "Take five minutes to test your reasons" : "花 5 分钟检查自己的理由"}</small></span><ArrowRight size={16} /></Link>
+      <aside className="decision-checklist"><header><ListChecks size={25} weight="duotone" /><div><span>{en ? "One-minute check" : "一分钟决策检查"}</span><h2>{en ? "Before you act" : "行动之前，先核对三件事"}</h2></div></header><ol><li><Broadcast size={19} /><span><strong>{en ? "Check the source" : "先看来源"}</strong><small>{en ? "Is this one venue, a cached quote or a truly comparable market?" : "这是单一交易所、缓存报价，还是可比较的同类市场？"}</small></span></li><li><Scales size={19} /><span><strong>{en ? "Check confirmation" : "再看共振"}</strong><small>{en ? "Did related assets and volume confirm the move, or is it isolated?" : "相关资产与量能是否同步，还是只有一个标的在动？"}</small></span></li><li><NotePencil size={19} /><span><strong>{en ? "Write the invalidation" : "写下失效条件"}</strong><small>{en ? "Define what would prove your current idea wrong before committing." : "行动前先写清楚：出现什么情况，说明自己判断错了？"}</small></span></li></ol><Link className="button button--soft" href="/regret"><FirstAid size={17} />{en ? "Run the pause check" : "做一次冷静检查"}<ArrowRight size={15} /></Link>
       </aside>
     </section>
   );
@@ -232,7 +237,7 @@ export function HomeDashboard() {
   return (
     <>
       <HomeMarketSpotlight aiUsage={aiUsage} allMarketAssets={allMarketAssets} cryptoAssets={cryptoAssets} feedLabel={feedLabel} loadingId={loadingId} onExplain={explain} records={records} stockAssets={stockAssets} weather={displayWeather} />
-      {mode === "brief" ? <BriefDashboard weather={displayWeather} /> : mode === "lens" ? <LensDashboard previewAssets={previewAssets} weather={displayWeather} /> : <CalmDashboard cryptoAssets={cryptoAssets} stockAssets={stockAssets} weather={displayWeather} />}
+      {mode === "brief" ? <DailyFocusBoard assets={[...cryptoAssets, ...stockAssets]} loadingId={loadingId} onExplain={explain} /> : mode === "lens" ? <LensDashboard previewAssets={previewAssets} weather={displayWeather} /> : <CalmDashboard cryptoAssets={cryptoAssets} stockAssets={stockAssets} weather={displayWeather} />}
       <section className="daily-entry-grid" aria-label={en ? "Daily content" : "每日内容入口"}>
         <Link className="daily-entry-card daily-entry-card--hot" href="/hotspots"><span><Newspaper size={24} weight="duotone" /></span><div><small>Daily pulse</small><h2>{en ? "Daily Pulse" : "每日热点"}</h2><p>{en ? "Understand the themes moving tokenized stocks, crypto and sentiment in three minutes." : "三分钟看懂今天真正影响币股、币圈和市场情绪的主线。"}</p></div><ArrowRight size={18} /></Link>
         <Link className="daily-entry-card" href="/calendar"><span><CalendarCheck size={24} weight="duotone" /></span><div><small>Macro schedule</small><h2>{en ? "Economic Calendar" : "财经日历"}</h2><p>{en ? "View central-bank decisions, inflation, jobs and growth releases in Beijing time." : "按北京时间查看央行决议、通胀、就业和增长数据等高影响事件。"}</p></div><ArrowRight size={18} /></Link>

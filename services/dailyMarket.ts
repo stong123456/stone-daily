@@ -34,6 +34,13 @@ export function buildDailyRankings(assets: MarketAsset[], limit = 5) {
   };
 }
 
+export function buildFocusShortlist(assets: MarketAsset[], limit = 3) {
+  return uniqueMarketAssets(assets)
+    .filter((asset) => Number.isFinite(asset.change24h))
+    .sort((left, right) => Math.abs(right.change24h) - Math.abs(left.change24h) || right.volume - left.volume)
+    .slice(0, Math.max(0, limit));
+}
+
 function firstSentence(value: string) {
   const trimmed = value.trim();
   const cjkSentence = trimmed.match(/^.*?[。！？!?]/)?.[0];

@@ -4,9 +4,11 @@ import { ArrowClockwise, Binoculars, Broadcast, ChartLineUp, CloudSun, ShieldChe
 import { useEffect, useState } from "react";
 import { useAppState } from "@/components/AppStateProvider";
 import { AssetLogo } from "@/components/AssetLogo";
+import { ShareCardButton } from "@/components/ShareCardButton";
 import { fetchMarketFeed } from "@/services/marketProviders";
 import { buildMarketWeather, canonicalAssetSymbol, type LiveMarketWeather } from "@/services/marketWeather";
 import { localizeMarketWeather } from "@/services/localization";
+import { buildMarketShareContent } from "@/services/shareCard";
 
 function formatChinaDateTime(value: string, language: "zh" | "en") {
   return new Intl.DateTimeFormat(language === "en" ? "en-US" : "zh-CN", {
@@ -101,6 +103,7 @@ export function MarketWeatherCard() {
         <article><ShieldCheck size={23} /><div><h3>{en ? "Do not ignore this today" : "今天先别忽略什么"}</h3><ul>{displayWeather.watchouts.map((item) => <li key={item}>{item}</li>)}</ul></div></article>
       </div>
       <div className="weather-report__summary"><WarningCircle size={22} /><p>{displayWeather.riskNote}</p></div>
+      <div className="weather-report__actions"><ShareCardButton content={buildMarketShareContent(displayWeather, language)} /></div>
     </section>
   );
 }

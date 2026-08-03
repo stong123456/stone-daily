@@ -1,4 +1,11 @@
+import { canonicalAssetSymbol, type LiveMarketWeather } from "@/services/marketWeather";
+
 export type ShareCardKind = "ai" | "calm" | "detox" | "daily";
+
+export interface ShareCardDatum {
+  label: string;
+  value: string;
+}
 
 export interface ShareCardContent {
   kind: ShareCardKind;
@@ -6,6 +13,9 @@ export interface ShareCardContent {
   summary: string;
   detail?: string;
   asset?: string;
+  metrics?: ShareCardDatum[];
+  signals?: ShareCardDatum[];
+  updatedAt?: string;
   language?: "zh" | "en";
 }
 
@@ -53,6 +63,44 @@ function loadLogo() {
     image.onerror = reject;
     image.src = "/assets/stone-daily-mark.png";
   });
+}
+
+function shareMove(asset: LiveMarketWeather["topMovers"][number] | undefined, language: "zh" | "en") {
+  if (!asset) return language === "en" ? "Waiting" : "待更新";
+  const sign = asset.change24h >= 0 ? "+" : "";
+  return `${canonicalAssetSymbol(asset)} ${sign}${asset.change24h.toFixed(2)}%`;
+}
+
+export function buildMarketShareContent(weather: LiveMarketWeather, language: "zh" | "en"): Omit<ShareCardContent, "language"> {
+  const en = language === "en";
+  const updatedAt = new Intl.DateTimeFormat(en ? "en-GB" : "zh-CN", {
+    timeZone: "Asia/Shanghai",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(new Date(weather.updatedAt));
+  return {
+    kind: "daily",
+    title: weather.weather,
+    summary: weather.headline,
+    metrics: [
+      { label: en ? "MARKET BREADTH" : "全市场上涨广度", value: `${weather.breadth}%` },
+      { label: en ? "CRYPTO TEMP" : "币圈温度", value: String(weather.cryptoTemperature) },
+      { label: en ? "STOCK TEMP" : "币股温度", value: String(weather.stockTemperature) },
+      { label: "FOMO", value: String(weather.fomoIndex) },
+    ],
+    signals: [
+      { label: en ? "LEADER" : "领涨代表", value: shareMove(weather.topMovers[0], language) },
+      { label: en ? "LAGGARD" : "领跌代表", value: shareMove(weather.laggards[0], language) },
+      { label: en ? "HIGH VOL" : "高波动占比", value: `${weather.highVolatilityShare}%` },
+    ],
+    updatedAt,
+    detail: weather.totalProviders
+      ? (en ? `${weather.liveProviders}/${weather.totalProviders} feeds live · Beijing ${updatedAt}` : `${weather.liveProviders}/${weather.totalProviders} 个行情源在线｜北京时间 ${updatedAt}`)
+      : (en ? `Market snapshot · Beijing ${updatedAt}` : `市场快照｜北京时间 ${updatedAt}`),
+  };
 }
 
 export async function renderShareCard(content: ShareCardContent) {
@@ -106,6 +154,60 @@ export async function renderShareCard(content: ShareCardContent) {
   for (const line of wrapLines(context, content.title, 1050, 2)) {
     context.fillText(line, 72, y);
     y += 66;
+  }
+
+  if (content.kind === "daily" && content.metrics?.length) {
+    context.fillStyle = "#405767";
+    context.font = "500 24px system-ui, 'Noto Sans SC', sans-serif";
+    let summaryY = 305;
+    for (const line of wrapLines(context, content.summary, 1056, 2)) {
+      context.fillText(line, 72, summaryY);
+      summaryY += 34;
+    }
+
+    const metrics = content.metrics.slice(0, 4);
+    const metricGap = 14;
+    const metricWidth = (1056 - metricGap * (metrics.length - 1)) / metrics.length;
+    metrics.forEach((metric, index) => {
+      const x = 72 + index * (metricWidth + metricGap);
+      roundedRect(context, x, 375, metricWidth, 102, 18);
+      context.fillStyle = "rgba(255,255,255,.84)";
+      context.fill();
+      context.strokeStyle = "rgba(49,92,123,.16)";
+      context.lineWidth = 2;
+      context.stroke();
+      context.fillStyle = "#758692";
+      context.font = "700 15px system-ui, sans-serif";
+      context.fillText(metric.label, x + 20, 406);
+      context.fillStyle = palette.accent;
+      context.font = "750 35px system-ui, sans-serif";
+      context.fillText(metric.value, x + 20, 452);
+    });
+
+    const signals = content.signals?.slice(0, 3) ?? [];
+    const signalWidth = signals.length ? 1056 / signals.length : 1056;
+    signals.forEach((signal, index) => {
+      const x = 72 + index * signalWidth;
+      context.fillStyle = "#73838e";
+      context.font = "700 14px system-ui, sans-serif";
+      context.fillText(signal.label, x, 516);
+      context.fillStyle = "#243b4d";
+      context.font = "700 21px system-ui, 'Noto Sans SC', sans-serif";
+      context.fillText(signal.value, x, 547);
+    });
+
+    context.fillStyle = palette.accent;
+    context.fillRect(72, 590, 72, 5);
+    context.fillStyle = "#5e7180";
+    context.font = "500 18px system-ui, sans-serif";
+    context.fillText(content.detail || (en ? "Live market snapshot · Not investment advice" : "实时市场快照｜不构成投资建议"), 72, 630);
+    context.textAlign = "right";
+    context.fillStyle = "#315c7b";
+    context.font = "700 22px system-ui, sans-serif";
+    context.fillText("stonedaily.xyz", 1128, 630);
+    context.textAlign = "left";
+
+    return new Promise<Blob>((resolve, reject) => canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error("share_card_failed")), "image/png", 0.96));
   }
 
   roundedRect(context, 72, 365, 1056, 180, 24);

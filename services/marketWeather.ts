@@ -10,9 +10,26 @@ export interface MarketWeatherInput {
   updatedAt?: string;
 }
 
+export type MarketWeatherCondition =
+  | "heat-gusts"
+  | "updraft"
+  | "cold-front"
+  | "turbulent"
+  | "crypto-clear"
+  | "stocks-clear"
+  | "clear-warming"
+  | "sun-cloud"
+  | "cold-wave"
+  | "cold-rain"
+  | "quiet-cloud"
+  | "clearing"
+  | "overcast-clearing"
+  | "cloudy-rotation";
+
 export interface LiveMarketWeather {
   score: number;
   weather: string;
+  condition: MarketWeatherCondition;
   tone: "warm" | "calm" | "windy" | "cold";
   headline: string;
   riskNote: string;
@@ -98,6 +115,36 @@ function formatMove(asset?: MarketAsset) {
   return `${canonicalAssetSymbol(asset)} ${sign}${asset.change24h.toFixed(2)}%`;
 }
 
+interface WeatherSignals {
+  score: number;
+  fomoIndex: number;
+  breadth: number;
+  volatility: number;
+  highVolatilityShare: number;
+  cryptoBreadth: number;
+  stockBreadth: number;
+}
+
+export function classifyMarketWeather(signals: WeatherSignals): { condition: MarketWeatherCondition; weather: string; tone: LiveMarketWeather["tone"] } {
+  const breadthGap = signals.cryptoBreadth - signals.stockBreadth;
+  const turbulent = signals.highVolatilityShare >= 28 || signals.volatility >= 5;
+
+  if (turbulent && signals.breadth >= 62) return { condition: "updraft", weather: "强风拉升", tone: "windy" };
+  if (turbulent && signals.breadth <= 38) return { condition: "cold-front", weather: "寒雨急风", tone: "cold" };
+  if (signals.fomoIndex >= 76) return { condition: "heat-gusts", weather: "晴热有阵风", tone: "windy" };
+  if (turbulent) return { condition: "turbulent", weather: "多云伴强风", tone: "windy" };
+  if (breadthGap >= 30) return { condition: "crypto-clear", weather: "币圈晴、币股雨", tone: "calm" };
+  if (breadthGap <= -30) return { condition: "stocks-clear", weather: "币股晴、币圈雨", tone: "calm" };
+  if (signals.breadth >= 76 && signals.score >= 68) return { condition: "clear-warming", weather: "晴朗升温", tone: "warm" };
+  if (signals.breadth >= 60) return { condition: "sun-cloud", weather: "晴间多云", tone: "warm" };
+  if (signals.breadth <= 22) return { condition: "cold-wave", weather: "寒潮阴雨", tone: "cold" };
+  if (signals.breadth <= 40) return { condition: "cold-rain", weather: "阴雨偏冷", tone: "cold" };
+  if (signals.volatility <= 1 && signals.breadth >= 45 && signals.breadth <= 55) return { condition: "quiet-cloud", weather: "低云盘整", tone: "calm" };
+  if (signals.breadth > 52) return { condition: "clearing", weather: "多云转晴", tone: "warm" };
+  if (signals.breadth < 48) return { condition: "overcast-clearing", weather: "阴转多云", tone: "calm" };
+  return { condition: "cloudy-rotation", weather: "多云分化", tone: "calm" };
+}
+
 export function buildMarketWeather(input: MarketWeatherInput): LiveMarketWeather {
   const crypto = marketMetrics(input.cryptoAssets);
   const stocks = marketMetrics(input.stockAssets);
@@ -110,19 +157,15 @@ export function buildMarketWeather(input: MarketWeatherInput): LiveMarketWeather
   const hotAverage = topMovers.length ? topMovers.slice(0, 5).reduce((sum, asset) => sum + Math.max(0, asset.change24h), 0) / Math.min(5, topMovers.length) : 0;
   const fomoIndex = clamp(Math.round(12 + highVolatilityShare * 0.9 + Math.min(15, hotAverage) * 2.2 + Math.max(0, breadth - 55) * 0.35));
   const score = clamp(Math.round(crypto.temperature * 0.58 + stocks.temperature * 0.42));
-
-  let weather = "多云偏暖";
-  let tone: LiveMarketWeather["tone"] = "calm";
-  if (fomoIndex >= 72 || highVolatilityShare >= 28) {
-    weather = "晴热有阵风";
-    tone = "windy";
-  } else if (score >= 64) {
-    weather = "晴间多云";
-    tone = "warm";
-  } else if (score <= 38) {
-    weather = "阴雨偏冷";
-    tone = "cold";
-  }
+  const { condition, weather, tone } = classifyMarketWeather({
+    score,
+    fomoIndex,
+    breadth,
+    volatility,
+    highVolatilityShare,
+    cryptoBreadth: crypto.breadth,
+    stockBreadth: stocks.breadth,
+  });
 
   const cryptoProviders = input.cryptoProviders ?? [];
   const stockProviders = input.stockProviders ?? [];
@@ -137,6 +180,7 @@ export function buildMarketWeather(input: MarketWeatherInput): LiveMarketWeather
   return {
     score,
     weather,
+    condition,
     tone,
     headline: `全市场上涨家数约 ${Math.round(breadth)}%，币圈温度 ${crypto.temperature}，币股温度 ${stocks.temperature}。${strongest ? `当前领涨代表是 ${formatMove(strongest)}` : "正在等待更多有效报价"}。`,
     riskNote: fomoIndex >= 70

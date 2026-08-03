@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { aiDailyLimit, normalizeAIUsage } from "../services/aiUsage.ts";
-import { buildDailyRankings, compactExplanation, selectFeaturedAssets } from "../services/dailyMarket.ts";
+import { buildDailyRankings, buildFocusShortlist, compactExplanation, selectFeaturedAssets } from "../services/dailyMarket.ts";
+import { classifyMarketWeather } from "../services/marketWeather.ts";
 import type { MarketAsset } from "../types/market.ts";
 
 function asset(input: Partial<MarketAsset> & Pick<MarketAsset, "id" | "symbol" | "market">): MarketAsset {
@@ -34,6 +35,34 @@ test("volume anomalies stay honest when comparable change data is unavailable", 
     asset({ id: "eth", symbol: "ETH", market: "crypto", volumeChange: -18 }),
   ]);
   assert.deepEqual(result.volumeSurges.map((item) => item.id), ["eth"]);
+});
+
+test("daily focus shortlist prioritizes absolute moves without duplicating venues", () => {
+  const result = buildFocusShortlist([
+    asset({ id: "btc-a", symbol: "BTC", market: "crypto", change24h: 2, volume: 100 }),
+    asset({ id: "btc-b", symbol: "XBT", market: "crypto", change24h: -4, volume: 200 }),
+    asset({ id: "eth", symbol: "ETH", market: "crypto", change24h: 3, volume: 150 }),
+    asset({ id: "sol", symbol: "SOL", market: "crypto", change24h: -1, volume: 120 }),
+  ], 2);
+
+  assert.deepEqual(result.map((item) => item.id), ["btc-b", "eth"]);
+});
+
+test("market weather distinguishes volatility, divergence, trend and quiet-range regimes", () => {
+  const base = { score: 50, fomoIndex: 35, breadth: 50, volatility: 2, highVolatilityShare: 10, cryptoBreadth: 50, stockBreadth: 50 };
+  const conditions = [
+    classifyMarketWeather({ ...base, breadth: 70, volatility: 6, highVolatilityShare: 32 }).condition,
+    classifyMarketWeather({ ...base, breadth: 30, volatility: 6, highVolatilityShare: 32 }).condition,
+    classifyMarketWeather({ ...base, cryptoBreadth: 78, stockBreadth: 38 }).condition,
+    classifyMarketWeather({ ...base, cryptoBreadth: 32, stockBreadth: 72 }).condition,
+    classifyMarketWeather({ ...base, score: 75, breadth: 80, cryptoBreadth: 80, stockBreadth: 80 }).condition,
+    classifyMarketWeather({ ...base, breadth: 18, cryptoBreadth: 18, stockBreadth: 18 }).condition,
+    classifyMarketWeather({ ...base, breadth: 50, volatility: 0.6 }).condition,
+    classifyMarketWeather(base).condition,
+  ];
+
+  assert.deepEqual(conditions, ["updraft", "cold-front", "crypto-clear", "stocks-clear", "clear-warming", "cold-wave", "quiet-cloud", "cloudy-rotation"]);
+  assert.equal(new Set(conditions).size, conditions.length);
 });
 
 test("AI allowance differentiates guest and signed-in users and resets stale dates", () => {

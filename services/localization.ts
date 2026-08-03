@@ -13,7 +13,23 @@ export function localizeMarketWeather(weather: LiveMarketWeather, language: Supp
   if (language === "zh") return weather;
   const strongest = weather.topMovers[0];
   const weakest = weather.laggards[0];
-  const weatherLabel = weather.tone === "windy" ? "Hot with gusts" : weather.tone === "warm" ? "Mostly sunny" : weather.tone === "cold" ? "Cool and rainy" : "Mildly cloudy";
+  const labels: Record<LiveMarketWeather["condition"], string> = {
+    "heat-gusts": "Hot with gusts",
+    updraft: "Strong warm updraft",
+    "cold-front": "Cold front and squalls",
+    turbulent: "Cloudy with strong gusts",
+    "crypto-clear": "Clear crypto, rainy stocks",
+    "stocks-clear": "Clear stocks, rainy crypto",
+    "clear-warming": "Clear and warming",
+    "sun-cloud": "Sun between clouds",
+    "cold-wave": "Cold wave and rain",
+    "cold-rain": "Cool and rainy",
+    "quiet-cloud": "Low clouds, quiet range",
+    clearing: "Clouds clearing",
+    "overcast-clearing": "Overcast, starting to clear",
+    "cloudy-rotation": "Cloudy rotation",
+  };
+  const weatherLabel = labels[weather.condition];
   return {
     ...weather,
     weather: weatherLabel,
