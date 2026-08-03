@@ -37,6 +37,22 @@ test("volume anomalies stay honest when comparable change data is unavailable", 
   assert.deepEqual(result.volumeSurges.map((item) => item.id), ["eth"]);
 });
 
+test("homepage rankings can expose fifteen gainers and decliners", () => {
+  const assets = Array.from({ length: 20 }, (_, index) => asset({
+    id: `asset-${index}`,
+    symbol: `ASSET${index}`,
+    market: "crypto",
+    change24h: index - 10,
+    volume: 100 + index,
+  }));
+  const result = buildDailyRankings(assets, 15);
+
+  assert.equal(result.gainers.length, 15);
+  assert.equal(result.losers.length, 15);
+  assert.equal(result.gainers[0].id, "asset-19");
+  assert.equal(result.losers[0].id, "asset-0");
+});
+
 test("daily focus shortlist prioritizes absolute moves without duplicating venues", () => {
   const result = buildFocusShortlist([
     asset({ id: "btc-a", symbol: "BTC", market: "crypto", change24h: 2, volume: 100 }),
