@@ -36,6 +36,7 @@ const featureCopy: Record<string, [string, string]> = {
   watchlist_change: ["增减自选", "Watchlist changes"],
   alert_create: ["创建提醒", "Alerts created"],
   digest_copy: ["复制每日热点", "Digests copied"],
+  share_card: ["生成分享图", "Share cards generated"],
   calm_open: ["使用冷静工具", "Calm tool opens"],
   wallet_connect: ["连接钱包", "Wallet connections"],
   sync_action: ["执行同步操作", "Sync actions"],

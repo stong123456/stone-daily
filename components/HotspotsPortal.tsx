@@ -13,6 +13,7 @@ import {
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useAppState } from "@/components/AppStateProvider";
+import { ShareCardButton } from "@/components/ShareCardButton";
 import { buildDailyHotspots } from "@/services/editorialRanking";
 import { isRigorousDigestHeadlineSource, isShareableMarketStory } from "@/services/editorialSharing";
 import { trackProductEvent } from "@/services/analytics";
@@ -173,6 +174,7 @@ export function HotspotsPortal() {
         <div><span>Daily pulse</span><h1>{isEnglish ? "Daily Pulse" : "每日热点"}</h1><p>{isEnglish ? "Rebuilt every day in Beijing time from multiple sources, then deduplicated, clustered and ranked with original links preserved." : "每天按北京时间重新读取多源信息、去重聚类并排序；每条内容都保留原始来源。"}</p></div>
         <div className="editorial-actions">
           <button className="button button--secondary" onClick={copyDigest} type="button">{copied ? <CheckCircle size={18} /> : <Copy size={18} />}{copied ? (isEnglish ? "Copied" : "已复制") : copyFailed ? (isEnglish ? "Copy failed" : "复制失败") : (isEnglish ? "Copy today's digest" : "复制今日摘要")}</button>
+          <ShareCardButton content={{ kind: "daily", title: isEnglish ? `Daily Pulse · ${todayLabel}` : `Stone Daily 每日热点｜${todayLabel}`, summary: shareItems.slice(0, 3).map((item, index) => `${index + 1}. ${item.title}`).join("  ") || (isEnglish ? "Sources are syncing. Check back shortly." : "信息源正在同步，请稍后再看。"), detail: isEnglish ? "Source-linked · Not investment advice" : "来源可回溯｜不构成投资建议" }} />
           <a className="button button--primary" href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}`} rel="noreferrer" target="_blank"><ShareNetwork size={18} />{isEnglish ? "Share on X" : "分享到 X"}</a>
         </div>
       </header>

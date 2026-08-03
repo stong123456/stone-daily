@@ -1,4 +1,4 @@
-const CACHE = "stone-daily-shell-v2";
+const CACHE = "stone-daily-shell-v3";
 const SHELL = ["/", "/markets", "/hotspots", "/watchlist", "/account", "/trust", "/offline", "/assets/stone-daily-mark.png"];
 self.addEventListener("install", (event) => { event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(SHELL)).then(() => self.skipWaiting())); });
 self.addEventListener("activate", (event) => { event.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key)))).then(() => self.clients.claim())); });

@@ -173,6 +173,22 @@ export async function generateAssetExplanation(asset: MarketAsset, language: "zh
   };
 }
 
+const explanationCache = new Map<string, Promise<AIExplanation>>();
+
+export function generateCachedAssetExplanation(asset: MarketAsset, language: "zh" | "en" = "zh") {
+  const halfHourBucket = Math.floor(Date.now() / 1_800_000);
+  const key = `${asset.id}|${asset.venue ?? "all"}|${language}|${halfHourBucket}`;
+  const cached = explanationCache.get(key);
+  if (cached) return cached;
+  if (explanationCache.size > 240) explanationCache.clear();
+  const pending = generateAssetExplanation(asset, language).catch((error) => {
+    explanationCache.delete(key);
+    throw error;
+  });
+  explanationCache.set(key, pending);
+  return pending;
+}
+
 type AssetCalmContext = {
   symbol: string;
   venue: string;

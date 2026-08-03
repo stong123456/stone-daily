@@ -2,6 +2,7 @@
 
 import { CheckCircle, FirstAid, ShieldWarning, StopCircle, Warning } from "@phosphor-icons/react";
 import { useAppState } from "@/components/AppStateProvider";
+import { ShareCardButton } from "@/components/ShareCardButton";
 import type { RegretAnalysis } from "@/types/market";
 
 export function RegretReport({ report }: { report: RegretAnalysis }) {
@@ -18,6 +19,7 @@ export function RegretReport({ report }: { report: RegretAnalysis }) {
         <article><CheckCircle size={22} /><div><h3>{en ? "How to verify safely" : "怎么安全验证"}</h3><ul>{report.verifySafely.map((item) => <li key={item}>{item}</li>)}</ul></div></article>
       </div>
       <blockquote>{report.conclusion}</blockquote>
+      <div className="result-report__actions"><ShareCardButton content={{ kind: "calm", title: report.title, summary: report.conclusion, detail: en ? "Pause first · Verify next · Not investment advice" : "先停一下｜再做验证｜不构成投资建议" }} /></div>
     </section>
   );
 }

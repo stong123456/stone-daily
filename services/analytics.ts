@@ -1,4 +1,4 @@
-const EVENTS = new Set(["page_view", "asset_open", "watchlist_change", "alert_create", "digest_copy", "calm_open", "wallet_connect", "sync_action"]);
+const EVENTS = new Set(["page_view", "asset_open", "watchlist_change", "alert_create", "digest_copy", "share_card", "calm_open", "wallet_connect", "sync_action"]);
 
 export function trackProductEvent(name: string, properties: Record<string, string | number | boolean> = {}) {
   if (typeof window === "undefined" || navigator.doNotTrack === "1" || !EVENTS.has(name)) return;

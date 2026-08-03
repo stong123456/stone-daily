@@ -10,8 +10,9 @@ import { MarketTable } from "@/components/MarketTable";
 import { MarketIntelligencePanel } from "@/components/MarketIntelligencePanel";
 import { MarketTemperatureCard } from "@/components/MarketTemperatureCard";
 import { Watchlist } from "@/components/Watchlist";
+import { useAIUsage } from "@/hooks/useAIUsage";
 import { expandedCryptoData, expandedStockData, marketUniverse } from "@/data/expandedMarket";
-import { buildAssetCalmPrompt, generateAssetExplanation } from "@/services/aiAnalysis";
+import { buildAssetCalmPrompt, generateCachedAssetExplanation } from "@/services/aiAnalysis";
 import { fetchMarketFeed, type MarketFeedResult, type MarketProviderSummary } from "@/services/marketProviders";
 import { calculateMarketSpreads, mergeStreamQuotes } from "@/services/marketStream";
 import { buildMarketWeather, canonicalAssetId, isWatchedAsset } from "@/services/marketWeather";
@@ -63,8 +64,9 @@ function selectStreamSymbols(assets: MarketAsset[]) {
 
 export function MarketExplorer() {
   const router = useRouter();
-  const { language, watchlistIds, toggleWatchlist } = useAppState();
+  const { language, watchlistIds, toggleWatchlist, addRecord } = useAppState();
   const en = language === "en";
+  const aiUsage = useAIUsage();
   const [tab, setTab] = useState<Tab>("crypto");
   const [query, setQuery] = useState("");
   const [sector, setSector] = useState("全部");
@@ -80,6 +82,7 @@ export function MarketExplorer() {
   const [feedStatus, setFeedStatus] = useState<FeedStatus>({ source: "正在连接行情源", mode: "loading" });
   const [selected, setSelected] = useState<MarketAsset | null>(null);
   const [explanation, setExplanation] = useState<AIExplanation | null>(null);
+  const [explanationBlocked, setExplanationBlocked] = useState(false);
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [directStreamConnected, setDirectStreamConnected] = useState(false);
   const [streamSymbols, setStreamSymbols] = useState(defaultStreamSymbols);
@@ -245,9 +248,15 @@ export function MarketExplorer() {
   const explain = async (asset: MarketAsset) => {
     setSelected(asset);
     setExplanation(null);
+    if (!aiUsage.consume()) {
+      setExplanationBlocked(true);
+      return;
+    }
+    setExplanationBlocked(false);
     setLoadingId(asset.id);
-    const result = await generateAssetExplanation(asset, language);
+    const result = await generateCachedAssetExplanation(asset, language);
     setExplanation(result);
+    addRecord({ input: `${asset.symbol} · ${asset.venue ?? (en ? "Aggregated feed" : "综合行情")}`, type: "ai", summary: result.plainSummary });
     setLoadingId(null);
   };
 
@@ -306,7 +315,7 @@ export function MarketExplorer() {
         {filteredAssets.length > visibleCount ? <div className="market-load-more"><button className="button button--secondary" onClick={() => setVisibleCount((count) => count + pageSize)} type="button">{en ? "Load" : "继续加载"} {Math.min(pageSize, filteredAssets.length - visibleCount)} {en ? "more assets" : "个资产"}</button></div> : null}
         {tab === "crypto" ? <MarketIntelligencePanel spreads={feedStatus.spreads ?? []} streaming={feedStatus.streaming} /> : null}
       </section>
-      <AIExplanationModal asset={selected} explanation={explanation} onClose={() => setSelected(null)} open={Boolean(selected)} />
+      <AIExplanationModal asset={selected} blocked={explanationBlocked} explanation={explanation} onClose={() => setSelected(null)} open={Boolean(selected)} usage={aiUsage} />
     </>
   );
 }

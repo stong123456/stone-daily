@@ -125,7 +125,7 @@ function stringList(value: unknown, limit: number) {
 
 function records(value: unknown): CalmRecord[] {
   if (!Array.isArray(value)) return [];
-  return value.filter((item): item is CalmRecord => Boolean(item) && typeof item === "object" && typeof item.id === "string" && typeof item.input === "string" && typeof item.summary === "string" && typeof item.createdAt === "string" && (item.type === "regret" || item.type === "detox")).slice(0, 300).map((item) => ({ ...item, input: item.input.slice(0, 4_000), summary: item.summary.slice(0, 1_200) }));
+  return value.filter((item): item is CalmRecord => Boolean(item) && typeof item === "object" && typeof item.id === "string" && typeof item.input === "string" && typeof item.summary === "string" && typeof item.createdAt === "string" && (item.type === "ai" || item.type === "regret" || item.type === "detox")).slice(0, 300).map((item) => ({ ...item, input: item.input.slice(0, 4_000), summary: item.summary.slice(0, 1_200) }));
 }
 
 function alerts(value: unknown): MarketAlert[] {

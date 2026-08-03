@@ -8,7 +8,7 @@
     "market:stream": "node workers/market-stream.mjs",
     "start": "next start",
     "test:editorial": "node --experimental-strip-types --test --test-isolation=none tests/editorial-sharing.test.ts",
-    "test:product": "node --experimental-strip-types --test --test-isolation=none tests/asset-identity.test.ts tests/editorial-sharing.test.ts tests/wallet-auth.test.ts tests/analytics-privacy.test.ts",
+    "test:product": "node --experimental-strip-types --test --test-isolation=none tests/asset-identity.test.ts tests/editorial-sharing.test.ts tests/wallet-auth.test.ts tests/analytics-privacy.test.ts tests/daily-loop.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

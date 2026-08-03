@@ -8,92 +8,86 @@ import {
   ChartLineUp,
   CheckCircle,
   CloudSun,
+  Crown,
   FirstAid,
+  Gauge,
   Leaf,
   Newspaper,
   ShieldCheck,
   Sparkle,
   Star,
+  TrendDown,
+  TrendUp,
+  UserCircle,
+  Wallet,
   WarningCircle,
 } from "@phosphor-icons/react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { AIExplanationModal } from "@/components/AIExplanationModal";
 import { useAppState } from "@/components/AppStateProvider";
 import { AssetLogo } from "@/components/AssetLogo";
 import { FeatureCard } from "@/components/FeatureCard";
 import { MarketTemperatureCard } from "@/components/MarketTemperatureCard";
+import { ShareCardButton } from "@/components/ShareCardButton";
 import { allAssets, cryptoData, stockData } from "@/data/market";
+import { expandedCryptoData, expandedStockData } from "@/data/expandedMarket";
+import { useAIUsage } from "@/hooks/useAIUsage";
+import { buildAssetCalmPrompt, generateCachedAssetExplanation } from "@/services/aiAnalysis";
+import { buildDailyRankings, featuredCryptoSymbols, featuredStockSymbols, selectFeaturedAssets } from "@/services/dailyMarket";
 import { formatPercent, formatPrice } from "@/services/format";
 import { fetchMarketFeed } from "@/services/marketProviders";
 import { buildMarketWeather, canonicalAssetId, canonicalAssetSymbol, isWatchedAsset, type LiveMarketWeather } from "@/services/marketWeather";
 import { localizeAssetCopy, localizeMarketWeather } from "@/services/localization";
-import type { MarketAsset } from "@/types/market";
+import type { AIExplanation, CalmRecord, MarketAsset } from "@/types/market";
 
 const fallbackPreviewAssets = [cryptoData[0], cryptoData[1], cryptoData[2], stockData[2], stockData[3]];
 const fallbackWeather = buildMarketWeather({ cryptoAssets: cryptoData, stockAssets: stockData, cryptoMode: "fallback", stockMode: "fallback" });
 
-function Hero() {
-  const { language } = useAppState();
-  const en = language === "en";
-  return (
-    <section className="home-hero">
-      <img alt={en ? "A calm coast and lighthouse" : "平静海岸与灯塔"} className="home-hero__landscape" src="/assets/calm-coast.png" />
-      <div className="home-hero__copy"><h1>{en ? "AI market intelligence, made understandable" : "普通人也能看懂的 AI 行情站"}</h1><p>{en ? "Follow tokenized stocks, crypto and daily market stories—while noticing when emotion takes over. Stone Daily does not issue calls or promise returns; it translates the market into plain language." : "看币股、看币圈、看热点，也看自己有没有上头。Stone Daily 不喊单，不承诺收益，只帮你把市场翻译成人话。"}</p></div>
-      <div className="home-hero__actions">
-        <Link className="button button--primary" href="/markets"><ChartLineUp size={19} />{en ? "Open live markets" : "看实时行情"}</Link>
-        <Link className="button button--secondary" href="/weather"><CloudSun size={19} />{en ? "Market weather" : "今日市场天气"}</Link>
-        <Link className="button button--soft" href="/regret"><FirstAid size={19} />{en ? "Help me pause" : "帮我冷静一下"}</Link>
-      </div>
-      <div className="home-hero__meta"><span>{en ? "Live updates · Beijing time" : "北京时间实时更新"}</span><span>{en ? "Refer to each page for feed status" : "行情源状态以页面标识为准"}</span></div>
-    </section>
-  );
-}
-
-function HomeMarketSpotlight({ assets, feedLabel, weather }: { assets: MarketAsset[]; feedLabel: string; weather: LiveMarketWeather }) {
+function FeaturedRows({ assets, loadingId, onExplain }: { assets: MarketAsset[]; loadingId: string | null; onExplain: (asset: MarketAsset) => void }) {
   const { language, watchlistIds, toggleWatchlist } = useAppState();
   const en = language === "en";
-  return (
-    <section className="home-market-spotlight" aria-labelledby="home-live-market-title">
-      <div className="home-market-spotlight__table" role="table" aria-label={en ? "Live market quotes" : "实时市场行情"}>
-        <header className="home-market-spotlight__header">
-          <div>
-            <h2 id="home-live-market-title">{en ? "Live markets" : "实时行情"}</h2>
-            <span className="home-market-spotlight__status"><i />{en ? "Live data updating" : "数据实时更新中"}</span>
-            <small>{feedLabel}</small>
-          </div>
-          <Link href="/markets">{en ? "View all markets" : "查看全部行情"} <ArrowRight size={16} /></Link>
-        </header>
-        <div className="home-market-spotlight__head" role="row">
-          <span role="columnheader">{en ? "Asset" : "资产"}</span><span role="columnheader">{en ? "Price (USD)" : "价格 (USD)"}</span><span role="columnheader">{en ? "24H change" : "24H 涨跌"}</span><span role="columnheader">{en ? "Source / venue" : "来源 / 交易所"}</span><span role="columnheader">{en ? "AI signal (plain language)" : "AI 信号（简明解读）"}</span><span role="columnheader">{en ? "Actions" : "操作"}</span>
-        </div>
-        <div className="home-market-spotlight__rows">
-          {assets.map((asset) => {
-            const copy = localizeAssetCopy(asset, language);
-            const watched = isWatchedAsset(watchlistIds, asset);
-            return (
-            <div className="home-market-spotlight__row" key={asset.id} role="row">
-              <Link className="home-market-spotlight__asset" href={`/asset/${encodeURIComponent(canonicalAssetSymbol(asset))}`} role="cell"><AssetLogo asset={asset} size={32} /><span><strong>{asset.symbol}</strong><small>{copy.name}</small></span></Link>
-              <div className="home-market-spotlight__price" role="cell"><strong>{formatPrice(asset.price)}</strong><small>{copy.narrative}</small></div>
-              <strong className={asset.change24h >= 0 ? "is-positive" : "is-negative"} role="cell">{formatPercent(asset.change24h)}</strong>
-              <span className="home-market-spotlight__venue" role="cell">{asset.venue ?? (asset.market === "crypto" ? (en ? "Multi-venue aggregate" : "多交易所聚合") : (en ? "Tokenized-stock aggregate" : "币股聚合"))}</span>
-              <div className="home-market-spotlight__signal" role="cell"><span className="status-tag">{copy.aiTag}</span><small>{copy.aiHint}</small></div>
-              <div className="home-market-spotlight__actions" role="cell">
-                <Link className="row-action" href={`/asset/${encodeURIComponent(canonicalAssetSymbol(asset))}`}><Brain size={15} />{en ? "AI brief" : "AI 解读"}</Link>
-                <button aria-label={watched ? (en ? `Remove ${asset.symbol} from watchlist` : `移除 ${asset.symbol} 自选`) : (en ? `Add ${asset.symbol} to watchlist` : `将 ${asset.symbol} 加入自选`)} className="row-action row-action--icon" data-active={watched} onClick={() => toggleWatchlist(canonicalAssetId(asset), asset.id)} type="button"><Star size={16} weight={watched ? "fill" : "regular"} /></button>
-              </div>
-            </div>
-          )})}
-        </div>
-        <div className="home-market-spotlight__foot"><span>{en ? "Add more assets and build a watchlist stored on this device." : "支持自选与更多资产添加，创建你自己的关注列表。"}</span><Link href="/watchlist">{en ? "Manage watchlist" : "自选管理"} <ArrowRight size={14} /></Link></div>
+  return <div className="daily-market-rows">{assets.map((asset) => {
+    const copy = localizeAssetCopy(asset, language);
+    const watched = isWatchedAsset(watchlistIds, asset);
+    return <div className="daily-market-row" data-testid={`home-market-${canonicalAssetSymbol(asset)}`} key={canonicalAssetId(asset)}>
+      <Link className="daily-market-row__asset" href={`/asset/${encodeURIComponent(canonicalAssetSymbol(asset))}`}><AssetLogo asset={asset} size={30} /><span><strong>{canonicalAssetSymbol(asset)}</strong><small>{asset.venue ?? copy.name}</small></span></Link>
+      <strong className="daily-market-row__price">{formatPrice(asset.price)}</strong>
+      <em className={asset.change24h >= 0 ? "is-positive" : "is-negative"}>{formatPercent(asset.change24h)}</em>
+      <span className="daily-market-row__signal"><b>{copy.aiTag}</b><small>{copy.aiHint}</small></span>
+      <div className="daily-market-row__actions"><button className="row-action" disabled={loadingId === asset.id} onClick={() => onExplain(asset)} type="button"><Brain size={15} />{en ? "AI brief" : "AI 解读"}</button><Link className="row-action" href={`/regret?text=${encodeURIComponent(buildAssetCalmPrompt(asset, language))}`}><FirstAid size={15} />{en ? "Pause" : "帮我冷静"}</Link><button aria-label={watched ? (en ? `Remove ${asset.symbol} from watchlist` : `移除 ${asset.symbol} 自选`) : (en ? `Add ${asset.symbol} to watchlist` : `将 ${asset.symbol} 加入自选`)} className="row-action row-action--icon" data-active={watched} onClick={() => toggleWatchlist(canonicalAssetId(asset), asset.id)} type="button"><Star size={16} weight={watched ? "fill" : "regular"} /></button></div>
+    </div>;
+  })}</div>;
+}
+
+function RankingRail({ assets, kind }: { assets: MarketAsset[]; kind: "gain" | "loss" | "volume" }) {
+  const { language } = useAppState();
+  const en = language === "en";
+  const title = kind === "gain" ? (en ? "Top gainers" : "涨幅榜") : kind === "loss" ? (en ? "Top decliners" : "跌幅榜") : (en ? "Volume surges" : "成交量异动榜");
+  const Icon = kind === "gain" ? TrendUp : kind === "loss" ? TrendDown : Gauge;
+  return <article className="daily-ranking" data-kind={kind}><header><Icon size={18} /><h3>{title}</h3></header><ol>{assets.length ? assets.map((asset, index) => <li key={canonicalAssetId(asset)}><b>{index + 1}</b><Link href={`/asset/${encodeURIComponent(canonicalAssetSymbol(asset))}`}>{canonicalAssetSymbol(asset)}</Link><em className={kind === "loss" ? "is-negative" : kind === "gain" ? "is-positive" : ""}>{kind === "volume" ? `${asset.volumeChange >= 0 ? "+" : ""}${asset.volumeChange.toFixed(0)}%` : formatPercent(asset.change24h)}</em></li>) : <li className="daily-ranking__empty"><span>{en ? "Waiting for comparable data" : "等待可比成交量数据"}</span></li>}</ol><Link href="/markets">{en ? "View all" : "查看全部"}<ArrowRight size={13} /></Link></article>;
+}
+
+function HomeMarketSpotlight({ cryptoAssets, stockAssets, allMarketAssets, feedLabel, weather, loadingId, onExplain, aiUsage, records }: { cryptoAssets: MarketAsset[]; stockAssets: MarketAsset[]; allMarketAssets: MarketAsset[]; feedLabel: string; weather: LiveMarketWeather; loadingId: string | null; onExplain: (asset: MarketAsset) => void; aiUsage: { remaining: number; limit: number; signedIn: boolean }; records: CalmRecord[] }) {
+  const { language, watchlistIds } = useAppState();
+  const en = language === "en";
+  const rankings = useMemo(() => buildDailyRankings(allMarketAssets), [allMarketAssets]);
+  const primary = cryptoAssets[0] ?? stockAssets[0];
+  const watched = [...cryptoAssets, ...stockAssets].filter((asset) => isWatchedAsset(watchlistIds, asset)).slice(0, 4);
+  return <section className="daily-command" aria-labelledby="home-live-market-title">
+    <header className="daily-command__focus">
+      <div><h1>{en ? "Check the market once. Let AI make it understandable." : "每天看一眼行情，再用 AI 看懂它"}</h1><p>{en ? "Live crypto and tokenized-stock quotes, short plain-language context and one deliberate pause before action." : "真实行情、人话解读、行动前冷静一下。Stone Daily 不喊单，只把信息和风险讲清楚。"}</p><div className="daily-command__actions"><a className="button button--primary" href="#home-live-market-title"><ChartLineUp size={18} />{en ? "View markets" : "看行情"}</a><button className="button button--secondary" disabled={!primary} onClick={() => primary && onExplain(primary)} type="button"><Sparkle size={18} />{en ? "AI brief" : "AI 解读"}</button><Link className="button button--soft" href={primary ? `/regret?text=${encodeURIComponent(buildAssetCalmPrompt(primary, language))}` : "/regret"}><FirstAid size={18} />{en ? "Help me pause" : "帮我冷静一下"}</Link></div></div>
+      <div className="daily-usage" aria-label={en ? "Daily AI allowance" : "每日 AI 使用额度"}><span data-active={!aiUsage.signedIn}><UserCircle size={21} /><small>{en ? "Guest today" : "游客今日"}</small><strong>3 {en ? "uses" : "次"}</strong><em>{!aiUsage.signedIn ? (en ? `${aiUsage.remaining} left` : `剩余 ${aiUsage.remaining} 次`) : (en ? "Basic" : "基础额度")}</em></span><span data-active={aiUsage.signedIn}><Wallet size={21} /><small>{en ? "Wallet user" : "钱包用户"}</small><strong>10 {en ? "uses" : "次"}</strong><em>{aiUsage.signedIn ? (en ? `${aiUsage.remaining} left` : `剩余 ${aiUsage.remaining} 次`) : (en ? "Sign in to unlock" : "登录后解锁")}</em></span><span><Crown size={21} /><small>Stone Daily Pro</small><strong>{en ? "Reserved" : "已预留"}</strong><em>{en ? "Coming later" : "暂未收费"}</em></span></div>
+    </header>
+    <div className="daily-command__body">
+      <div className="daily-market-groups">
+        <section className="daily-market-group"><header><div><h2 id="home-live-market-title">{en ? "Popular crypto" : "热门币"}</h2><span><i />{en ? "Live updates" : "实时更新"}</span></div><small>{feedLabel}</small></header><FeaturedRows assets={cryptoAssets} loadingId={loadingId} onExplain={onExplain} /></section>
+        <section className="daily-market-group"><header><div><h2>{en ? "Popular tokenized stocks" : "热门币股"}</h2><span><i />{en ? "Product type retained" : "保留产品类型"}</span></div><Link href="/markets">{en ? "All assets" : "全部行情"}<ArrowRight size={14} /></Link></header><FeaturedRows assets={stockAssets} loadingId={loadingId} onExplain={onExplain} /></section>
       </div>
-      <aside className="home-market-spotlight__metrics" aria-label={en ? "Live market metrics" : "实时市场指标"}>
-        <article><small>{en ? "Market breadth" : "市场广度"}</small><strong>{weather.breadth}<span>/100</span></strong><div className="meter"><span style={{ width: `${weather.breadth}%` }} /></div><p>{en ? "Tokenized stocks" : "币股"} {weather.stockBreadth}% · {en ? "Crypto" : "币圈"} {weather.cryptoBreadth}%</p></article>
-        <article><small>{en ? "Sentiment temperature" : "情绪温度"}</small><strong>{weather.score}<span>/100</span></strong><div className="meter"><span style={{ width: `${weather.score}%` }} /></div><p>{weather.weather}</p></article>
-        <article className="home-market-spotlight__fomo"><small>{en ? "FOMO index" : "FOMO 指数"}</small><strong>{weather.fomoIndex}<span>/100</span></strong><em>{weather.fomoIndex >= 70 ? (en ? "Hot" : "偏热") : weather.fomoIndex >= 45 ? (en ? "Neutral" : "中性") : (en ? "Calm" : "平静")}</em><div className="meter"><span style={{ width: `${weather.fomoIndex}%` }} /></div><p>{weather.headline}</p></article>
-        <Link href="/weather">{en ? "More market data" : "更多市场数据"} <ArrowRight size={14} /></Link>
-      </aside>
-    </section>
-  );
+      <aside className="daily-market-side"><div className="daily-rankings"><RankingRail assets={rankings.gainers} kind="gain" /><RankingRail assets={rankings.losers} kind="loss" /><RankingRail assets={rankings.volumeSurges} kind="volume" /></div><article className="daily-weather"><div><CloudSun size={31} weight="duotone" /><span><small>{en ? "Live market weather" : "实时市场天气"}</small><strong>{weather.weather}</strong><em>{en ? `Breadth ${weather.breadth}/100` : `市场广度 ${weather.breadth}/100`}</em></span></div><dl><div><dt>{en ? "Sentiment" : "情绪温度"}</dt><dd>{weather.score}/100</dd></div><div><dt>FOMO</dt><dd>{weather.fomoIndex}/100</dd></div><div><dt>{en ? "Median move" : "中位波动"}</dt><dd>{weather.volatility}%</dd></div></dl><p>{weather.headline}</p><Link href="/weather">{en ? "Full weather report" : "完整市场天气"}<ArrowRight size={14} /></Link></article></aside>
+    </div>
+    <footer className="daily-command__personal"><section><header><h3>{en ? `Watchlist (${watchlistIds.length})` : `自选资产（${watchlistIds.length}）`}</h3><Link href="/watchlist">{en ? "Manage" : "管理"}</Link></header>{watched.length ? <div>{watched.map((asset) => <Link href={`/asset/${canonicalAssetSymbol(asset)}`} key={canonicalAssetId(asset)}><AssetLogo asset={asset} size={23} /><strong>{canonicalAssetSymbol(asset)}</strong><em className={asset.change24h >= 0 ? "is-positive" : "is-negative"}>{formatPercent(asset.change24h)}</em></Link>)}</div> : <p>{en ? "Star a few assets you genuinely follow." : "先给真正需要持续关注的资产点亮星标。"}</p>}</section><section><header><h3>{en ? "Recent AI / pause records" : "最近 AI / 冷静记录"}</h3><Link href="/history">{en ? "View all" : "查看全部"}</Link></header>{records.length ? <ol>{records.slice(0, 3).map((record) => <li key={record.id}><span>{record.type === "ai" ? (en ? "AI" : "解读") : record.type === "regret" ? (en ? "Pause" : "冷静") : (en ? "Detox" : "拆弹")}</span><p>{record.summary}</p></li>)}</ol> : <p>{en ? "Your daily market journal starts with the first AI brief." : "第一次 AI 解读后，你的市场冷静日记就会从这里开始。"}</p>}</section><section className="daily-share"><header><h3>{en ? "Share today’s context" : "生成今日分享图"}</h3></header><p>{en ? "Turn market weather into a clean Stone Daily card for X." : "把今天的市场天气和一句人话做成适合发 X 的图片。"}</p><ShareCardButton compact content={{ kind: "daily", title: weather.weather, summary: weather.headline, detail: en ? "Live market snapshot · Not investment advice" : "实时市场快照｜不构成投资建议" }} /></section></footer>
+  </section>;
 }
 
 function BriefDashboard({ weather }: { weather: LiveMarketWeather }) {
@@ -167,28 +161,37 @@ function MarketMini({ title, assets }: { title: string; assets: typeof allAssets
 }
 
 export function HomeDashboard() {
-  const { language, mode } = useAppState();
+  const { language, mode, addRecord, records } = useAppState();
   const en = language === "en";
+  const aiUsage = useAIUsage();
   const [previewAssets, setPreviewAssets] = useState<MarketAsset[]>(fallbackPreviewAssets);
-  const [cryptoAssets, setCryptoAssets] = useState<MarketAsset[]>(cryptoData.slice(0, 4));
-  const [stockAssets, setStockAssets] = useState<MarketAsset[]>(stockData.slice(0, 4));
+  const [cryptoAssets, setCryptoAssets] = useState<MarketAsset[]>(() => selectFeaturedAssets([...cryptoData, ...expandedCryptoData], featuredCryptoSymbols));
+  const [stockAssets, setStockAssets] = useState<MarketAsset[]>(() => selectFeaturedAssets([...stockData, ...expandedStockData], featuredStockSymbols));
+  const [allMarketAssets, setAllMarketAssets] = useState<MarketAsset[]>([...expandedCryptoData, ...expandedStockData]);
   const [feedStatus, setFeedStatus] = useState<{ crypto: "live" | "cached" | "fallback" | "loading"; stocks: "live" | "cached" | "fallback" | "loading"; cryptoSources: number; stockSources: number }>({ crypto: "loading", stocks: "loading", cryptoSources: 0, stockSources: 0 });
   const [weather, setWeather] = useState<LiveMarketWeather>(fallbackWeather);
+  const [selected, setSelected] = useState<MarketAsset | null>(null);
+  const [explanation, setExplanation] = useState<AIExplanation | null>(null);
+  const [explanationBlocked, setExplanationBlocked] = useState(false);
+  const [loadingId, setLoadingId] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
-    Promise.all([fetchMarketFeed("crypto"), fetchMarketFeed("stocks")])
+    const load = () => Promise.all([fetchMarketFeed("crypto"), fetchMarketFeed("stocks")])
       .then(([cryptoFeed, stockFeed]) => {
         if (!active) return;
         const liveCrypto = cryptoFeed.assets;
         const availableStocks = stockFeed.assets;
+        const cryptoPool = [...liveCrypto, ...expandedCryptoData];
+        const stockPool = [...availableStocks, ...expandedStockData];
         const btc = liveCrypto.find((asset) => asset.symbol === "BTC") ?? liveCrypto[0];
         const eth = liveCrypto.find((asset) => asset.symbol === "ETH") ?? liveCrypto[1];
         const sol = liveCrypto.find((asset) => asset.symbol === "SOL") ?? liveCrypto[2];
         const nvda = availableStocks.find((asset) => asset.symbol.toUpperCase().includes("NVDA")) ?? availableStocks[0];
         const tsla = availableStocks.find((asset) => asset.symbol.toUpperCase().includes("TSLA")) ?? availableStocks[1];
-        setCryptoAssets(liveCrypto.slice(0, 4));
-        setStockAssets(availableStocks.slice(0, 4));
+        setCryptoAssets(selectFeaturedAssets(cryptoPool, featuredCryptoSymbols));
+        setStockAssets(selectFeaturedAssets(stockPool, featuredStockSymbols));
+        setAllMarketAssets(liveCrypto.length || availableStocks.length ? [...liveCrypto, ...availableStocks] : [...expandedCryptoData, ...expandedStockData]);
         setPreviewAssets([btc, eth, sol, nvda, tsla].filter((asset): asset is MarketAsset => Boolean(asset)));
         setWeather(buildMarketWeather({ cryptoAssets: liveCrypto, stockAssets: availableStocks, cryptoProviders: cryptoFeed.providers, stockProviders: stockFeed.providers, cryptoMode: cryptoFeed.mode, stockMode: stockFeed.mode, updatedAt: [cryptoFeed.updatedAt, stockFeed.updatedAt].sort().at(-1) }));
         const cryptoSources = cryptoFeed.providers?.filter((provider) => provider.status === "live").length ?? 0;
@@ -198,10 +201,28 @@ export function HomeDashboard() {
       .catch(() => {
         if (active) setFeedStatus({ crypto: "fallback", stocks: "fallback", cryptoSources: 0, stockSources: 0 });
       });
+    void load();
+    const refreshTimer = window.setInterval(() => void load(), 60_000);
     return () => {
       active = false;
+      window.clearInterval(refreshTimer);
     };
   }, []);
+
+  const explain = async (asset: MarketAsset) => {
+    setSelected(asset);
+    setExplanation(null);
+    if (!aiUsage.consume()) {
+      setExplanationBlocked(true);
+      return;
+    }
+    setExplanationBlocked(false);
+    setLoadingId(asset.id);
+    const result = await generateCachedAssetExplanation(asset, language);
+    setExplanation(result);
+    addRecord({ input: `${asset.symbol} · ${asset.venue ?? (en ? "Aggregated feed" : "综合行情")}`, type: "ai", summary: result.plainSummary });
+    setLoadingId(null);
+  };
 
   const feedLabel = en
     ? `${feedStatus.crypto === "live" ? `Crypto · ${feedStatus.cryptoSources} near-live feeds` : feedStatus.crypto === "cached" ? "Crypto · official cache" : feedStatus.crypto === "loading" ? "Crypto · checking feeds" : "Crypto · demo"} · ${feedStatus.stocks === "live" ? `Tokenized stocks · ${feedStatus.stockSources} near-live feeds` : feedStatus.stocks === "cached" ? "Tokenized stocks · official cache" : feedStatus.stocks === "loading" ? "Tokenized stocks · checking feeds" : "Tokenized stocks · demo"}`
@@ -210,8 +231,7 @@ export function HomeDashboard() {
 
   return (
     <>
-      <HomeMarketSpotlight assets={previewAssets} feedLabel={feedLabel} weather={displayWeather} />
-      <Hero />
+      <HomeMarketSpotlight aiUsage={aiUsage} allMarketAssets={allMarketAssets} cryptoAssets={cryptoAssets} feedLabel={feedLabel} loadingId={loadingId} onExplain={explain} records={records} stockAssets={stockAssets} weather={displayWeather} />
       {mode === "brief" ? <BriefDashboard weather={displayWeather} /> : mode === "lens" ? <LensDashboard previewAssets={previewAssets} weather={displayWeather} /> : <CalmDashboard cryptoAssets={cryptoAssets} stockAssets={stockAssets} weather={displayWeather} />}
       <section className="daily-entry-grid" aria-label={en ? "Daily content" : "每日内容入口"}>
         <Link className="daily-entry-card daily-entry-card--hot" href="/hotspots"><span><Newspaper size={24} weight="duotone" /></span><div><small>Daily pulse</small><h2>{en ? "Daily Pulse" : "每日热点"}</h2><p>{en ? "Understand the themes moving tokenized stocks, crypto and sentiment in three minutes." : "三分钟看懂今天真正影响币股、币圈和市场情绪的主线。"}</p></div><ArrowRight size={18} /></Link>
@@ -220,6 +240,7 @@ export function HomeDashboard() {
       </section>
       <section className="home-section"><div className="section-intro"><span>{en ? "Three things are enough" : "三件事，足够了"}</span><h2>{en ? "Understand the market. Remove noise. Slow impulse." : "看懂行情，拆掉噪音，拦住冲动"}</h2><p>{en ? "Stone Daily does not decide for you. It makes information clearer and emotion more visible." : "Stone Daily 不试图替你决定，只把信息变得更清楚，把情绪变得更可见。"}</p></div><div className="feature-grid"><FeatureCard Icon={ChartLineUp} number="01" title={en ? "Search the whole market" : "全市场行情搜索"}>{en ? "Explore crypto and tokenized-stock catalogues while keeping spot, onchain tokens and perpetuals distinct." : "覆盖币圈与币股目录，并明确区分现货、链上代币和永续合约。"}</FeatureCard><FeatureCard Icon={Brain} number="02" title={en ? "AI move explanations" : "AI 涨跌解释"}>{en ? "See not only how much an asset moved, but possible context and common interpretation errors." : "不只告诉你动了多少，还用人话解释可能原因和常见误区。"}</FeatureCard><FeatureCard Icon={FirstAid} number="03" title={en ? "Decision pause button" : "后悔药按钮"}>{en ? "Before acting, let your future self challenge the reasons driving you now." : "做决定之前，让未来的自己回来提醒现在的自己。"}</FeatureCard></div></section>
       <section className="principles"><div><span>{en ? "Our principles" : "我们的原则"}</span><h2>{en ? "Protect understanding before optimizing speed" : "先保护理解，再谈速度"}</h2></div><ul><li><CheckCircle size={19} />{en ? "No investment advice" : "不提供投资建议"}</li><li><CheckCircle size={19} />{en ? "No promised returns" : "不承诺任何收益"}</li><li><CheckCircle size={19} />{en ? "No manufactured anxiety" : "不制造焦虑"}</li><li><CheckCircle size={19} />{en ? "No decisions made for users" : "不替用户做决定"}</li><li><CheckCircle size={19} />{en ? "Only clearer information, visible risk and slower impulse" : "只帮助理解信息、识别风险、延迟冲动"}</li></ul></section>
+      <AIExplanationModal asset={selected} blocked={explanationBlocked} explanation={explanation} onClose={() => setSelected(null)} open={Boolean(selected)} usage={aiUsage} />
     </>
   );
 }

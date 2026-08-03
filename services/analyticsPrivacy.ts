@@ -6,6 +6,7 @@ export const ANALYTICS_EVENT_NAMES = [
   "watchlist_change",
   "alert_create",
   "digest_copy",
+  "share_card",
   "calm_open",
   "wallet_connect",
   "sync_action",

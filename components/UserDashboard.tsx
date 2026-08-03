@@ -4,6 +4,7 @@ import {
   ArrowRight,
   Bell,
   BellRinging,
+  Brain,
   CheckCircle,
   ClockCounterClockwise,
   CloudCheck,
@@ -124,7 +125,7 @@ export function UserDashboard() {
     </section>
 
     <section className="user-secondary-grid">
-      <article className="user-panel user-records"><header className="user-section-heading"><div><span>{en ? "Decision trail" : "决策痕迹"}</span><h2>{en ? "Recent pause records" : "最近冷静记录"}</h2></div><Link href="/history">{en ? "Open log" : "查看记录"}<ArrowRight size={15} /></Link></header>{app.records.length ? <ol>{app.records.slice(0, 4).map((record) => <li key={record.id}><span>{record.type === "regret" ? <FirstAid size={18} /> : <TrendUp size={18} />}</span><div><strong>{record.input}</strong><p>{record.summary}</p><time>{formatRecordTime(record.createdAt, en ? "en-US" : "zh-CN")}</time></div></li>)}</ol> : <div className="user-empty user-empty--compact"><ClockCounterClockwise size={25} /><strong>{en ? "No pause record yet" : "还没有冷静记录"}</strong><p>{en ? "Save a detox or pause result when you want to remember why you slowed down." : "完成拆弹或冷静分析后，可以把结果保存在这里。"}</p><Link href="/regret">{en ? "Try the pause button" : "试试帮我冷静"}<ArrowRight size={14} /></Link></div>}</article>
+      <article className="user-panel user-records"><header className="user-section-heading"><div><span>{en ? "Decision trail" : "决策痕迹"}</span><h2>{en ? "Recent AI & pause records" : "最近 AI 与冷静记录"}</h2></div><Link href="/history">{en ? "Open log" : "查看记录"}<ArrowRight size={15} /></Link></header>{app.records.length ? <ol>{app.records.slice(0, 4).map((record) => <li key={record.id}><span>{record.type === "ai" ? <Brain size={18} /> : record.type === "regret" ? <FirstAid size={18} /> : <TrendUp size={18} />}</span><div><strong>{record.input}</strong><p>{record.summary}</p><time>{formatRecordTime(record.createdAt, en ? "en-US" : "zh-CN")}</time></div></li>)}</ol> : <div className="user-empty user-empty--compact"><ClockCounterClockwise size={25} /><strong>{en ? "No AI or pause record yet" : "还没有 AI 或冷静记录"}</strong><p>{en ? "AI briefs, detox results and pause reports can be saved here." : "AI 解读、拆弹与冷静分析会保存在这里。"}</p><Link href="/markets">{en ? "Open live markets" : "查看实时行情"}<ArrowRight size={14} /></Link></div>}</article>
       <aside className="user-panel user-privacy"><header><ShieldCheck size={24} weight="duotone" /><div><span>{en ? "Sync & privacy" : "同步与隐私"}</span><h2>{en ? "You control where personal data lives" : "个人数据放在哪里，由你决定"}</h2></div></header><ul><li><Eye size={17} /><span><strong>{en ? "Local first" : "默认本机保存"}</strong><small>{en ? "Guest data never needs an account." : "游客数据不需要注册账号。"}</small></span></li><li><Wallet size={17} /><span><strong>{en ? "Wallet is identity only" : "钱包只用于身份验证"}</strong><small>{en ? "No transactions, approvals, balances or positions." : "不发交易、不做授权、不读取余额与持仓。"}</small></span></li><li><LockKey size={17} /><span><strong>{en ? "Conflict-safe sync" : "带冲突保护的同步"}</strong><small>{en ? "You can choose local, cloud, or merge both." : "发生冲突时可选择本机、云端或合并。"}</small></span></li></ul></aside>
     </section>
 

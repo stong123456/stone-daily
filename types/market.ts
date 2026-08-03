@@ -257,7 +257,7 @@ export interface HotspotAnalysis {
 export interface CalmRecord {
   id: string;
   input: string;
-  type: "regret" | "detox";
+  type: "ai" | "regret" | "detox";
   createdAt: string;
   summary: string;
 }
