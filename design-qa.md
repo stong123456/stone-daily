@@ -125,3 +125,65 @@ Final result: PASSED for the implemented UI and interactions. External-provider 
 - Above-the-fold copy diff: required labels `涨幅 TOP 20`, `最新 7×24`, `实时行情`, `查看全部行情`, `市场广度`, `情绪温度`, `FOMO 指数`, and the existing three hero actions are present. No new claims, badges, navigation items, or promotional copy were added.
 - Intentional deviation: the generated reference included decorative row sparklines. The homepage omits them because its current aggregate feed does not provide a common candle series for every venue; fake trend lines would conflict with the product's source-transparency rules. The implementation uses live price, change, venue, and symbol-specific AI copy instead.
 - Final Browser console check returned no warnings or errors. No visible P1/P2 mismatch remained after the reference-versus-render `view_image` comparison.
+
+## 2026-08-07 Market Weather Share Card QA
+
+**Source visual truth**
+
+- `C:\Users\ADMINI~1\AppData\Local\Temp\codex-clipboard-339cd663-8ca6-4b07-8387-5a4ed1b63b56.png`
+- Source pixels: 1125×805.
+- State: Chinese `/weather` report with weather hero, composite score, four metrics, six live leaders, three interpretation columns and a risk strip.
+
+**Rendered implementation**
+
+- Desktop modal screenshot: `C:\Users\ADMINI~1\AppData\Local\Temp\stone-daily-market-weather-final-zh-1440x1100.png`
+- Card crop: `C:\Users\ADMINI~1\AppData\Local\Temp\stone-daily-market-weather-final-zh-card.png`
+- Mobile modal screenshot: `C:\Users\ADMINI~1\AppData\Local\Temp\stone-daily-market-weather-final-zh-390x844.png`
+- Side-by-side comparison: `C:\Users\ADMINI~1\AppData\Local\Temp\stone-daily-market-weather-design-comparison.png`
+- Desktop CSS viewport: 1440×1100; browser screenshot backing pixels: 1425×1057 because browser scrollbars reduce the capture area.
+- Generated PNG natural size: 1200×900. Desktop rendered image crop: 866×650. Mobile rendered preview: 331×249.
+- Density normalization: the source and implementation crop were normalized to the same 805 px comparison height before side-by-side review. Live prices, provider health and timestamps were expected to differ because the report was regenerated from current feeds.
+
+**Full-view comparison evidence**
+
+- The implementation keeps the source hierarchy: branded header, pale weather hero with the real weather illustration, weather title and composite score, four metric cards, two-row leader grid, three interpretation columns, and the full-width risk note.
+- The share adaptation intentionally removes page navigation and the refresh control, adds the Stone Daily mark, domain, creator signature and disclaimer, and compacts the page into a 4:3 share-safe frame.
+- Typography preserves the source's serif display title and compact sans-serif data labels. Spacing, rounded borders, blue/green metric accents and the pale report palette remain consistent with the page.
+
+**Focused-region evidence**
+
+- The 866×650 card crop was inspected separately for hero copy, score alignment, four metric details, six venue labels, three interpretation blocks, risk strip and footer.
+- The mobile modal was inspected at 390×844; the complete card preview and close, download and share controls remain visible without horizontal overflow.
+
+**Findings and comparison history**
+
+- Pass 1 — P2: English metric details and paragraphs could split long words character by character. Fix: `wrapLines` now uses word-aware wrapping for non-CJK copy while preserving character wrapping for Chinese.
+- Pass 2 — P2: the first English interpretation column could truncate the final source venue. Fix: increased the analysis region to six tighter lines, keeping the entire three-part explanation inside the card.
+- Pass 3 — No actionable P0/P1/P2 differences. Remaining differences are intentional share-card adaptations or live-data changes.
+
+**Required fidelity surfaces**
+
+- Fonts and typography: passed; serif/sans hierarchy, weights, line height and bilingual wrapping are consistent and readable.
+- Spacing and layout rhythm: passed; hero, metrics, leaders, analysis and risk regions retain the page's proportions in the 1200×900 format.
+- Colors and tokens: passed; warm white, pale weather green, slate blue, muted gray and positive green match the existing Stone Daily system.
+- Image quality and asset fidelity: passed; the implementation uses the real `stone-daily-mark.png` and `market-weather.png` assets, with no placeholder or reconstructed artwork.
+- Copy and content: passed; all report layers, feed health, Beijing update time, domain, signature and disclaimer are present in Chinese and English.
+
+**Primary interactions tested**
+
+- Generate share card from `/weather`.
+- Close and reopen the preview.
+- Switch Chinese/English and regenerate.
+- Render at desktop and mobile breakpoints.
+- Confirm PNG natural size is 1200×900.
+- Confirm close, download and share controls are visible on mobile.
+- Browser console checked after the final flow: no warnings or errors.
+
+**Implementation checklist**
+
+- [x] Full weather-report information hierarchy retained.
+- [x] Bilingual word wrapping verified.
+- [x] Desktop and mobile preview verified.
+- [x] Production build, typecheck and product tests passed.
+
+final result: passed
