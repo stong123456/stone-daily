@@ -3,11 +3,10 @@ import test from "node:test";
 
 import {
   areSameEditorialEvent,
+  containsHan,
   getShareDigestCategory,
-  isPublishableTranslatedHeadline,
   isRigorousDigestHeadlineSource,
   isShareableMarketStory,
-  polishTranslatedHeadline,
 } from "../services/editorialSharing.ts";
 
 test("rejects roundup, newsletter, explainer and clipped source headlines", () => {
@@ -34,46 +33,9 @@ test("keeps concrete, attributable event headlines", () => {
   accepted.forEach((headline) => assert.equal(isRigorousDigestHeadlineSource(headline), true, headline));
 });
 
-test("post-edits current English headlines into precise natural Chinese", () => {
-  const cases = [
-    [
-      "There's a New Way to Protect Bitcoin From Future Quantum Attacks, Researchers Say",
-      "研究人员提出一种帮助比特币抵御未来量子攻击的新方案",
-    ],
-    [
-      "US sanctions Iranian maritime firm, says it accepted Bitcoin to evade restrictions",
-      "美国制裁伊朗海事公司，称其接受比特币以规避限制",
-    ],
-    [
-      "Ethereum Price Stalls as Fed Rate Decision Looms",
-      "美联储利率决议临近之际，以太坊价格走势趋于停滞",
-    ],
-    [
-      "South Korean crypto trading surges amid stock market plunge",
-      "韩国股市大跌之际，当地加密货币交易量激增",
-    ],
-    [
-      "Japanese game developer launches Bitcoin, altcoin fund with SBI",
-      "日本游戏开发商与 SBI 合作推出比特币和山寨币基金",
-    ],
-    [
-      "Chinese newspaper warns of Bitcoin extortion scam using its name",
-      "一家中国报纸警告，有人冒用其名义实施比特币敲诈骗局",
-    ],
-  ] as const;
-
-  cases.forEach(([source, expected]) => {
-    const polished = polishTranslatedHeadline(source, "机器翻译占位", "zh");
-    assert.equal(polished, expected);
-    assert.equal(isPublishableTranslatedHeadline(source, polished, "zh"), true);
-  });
-});
-
-test("normalizes attributable native Chinese wire prefixes", () => {
-  const source = "法律资讯网站消息：针对 Coinbase 产品发售的证券诉讼范围遭到缩减。";
-  const polished = polishTranslatedHeadline(source, source, "zh");
-  assert.equal(polished, "据法律资讯网站报道，针对 Coinbase 产品发售的证券诉讼范围遭到缩减");
-  assert.equal(isPublishableTranslatedHeadline(source, polished, "zh"), true);
+test("detects Chinese and English originals without translating either group", () => {
+  assert.equal(containsHan("美国制裁伊朗海事公司，称其接受比特币"), true);
+  assert.equal(containsHan("US sanctions Iranian maritime firm over Bitcoin payments"), false);
 });
 
 test("requires the copied headline itself to name the relevant market subject", () => {
@@ -93,41 +55,6 @@ test("requires the copied headline itself to name the relevant market subject", 
   assert.equal(isShareableMarketStory(story("Xcel Energy预计谷歌数据中心项目将在2027年初获批")), true);
   assert.equal(getShareDigestCategory("South Korean crypto trading surges amid stock market plunge"), "币圈");
   assert.equal(getShareDigestCategory("Hedge fund owns Bitcoin miner stocks"), "币股");
-});
-
-test("rejects entity reordering, unsupported causality and lost uncertainty", () => {
-  assert.equal(
-    isPublishableTranslatedHeadline(
-      "Japanese game developer launches Bitcoin, altcoin fund with SBI",
-      "日本游戏开发商与 SBI 合作推出山寨币基金比特币",
-      "zh",
-    ),
-    false,
-  );
-  assert.equal(
-    isPublishableTranslatedHeadline(
-      "South Korean crypto trading surges amid stock market plunge",
-      "股市暴跌导致韩国加密货币交易激增",
-      "zh",
-    ),
-    false,
-  );
-  assert.equal(
-    isPublishableTranslatedHeadline(
-      "BitRiver founder charged in Russia over alleged $8M fraud",
-      "BitRiver 创始人在俄罗斯因 8M 美元欺诈被起诉",
-      "zh",
-    ),
-    false,
-  );
-});
-
-test("rejects partially translated Chinese headlines with an English sentence skeleton", () => {
-  assert.equal(isPublishableTranslatedHeadline(
-    "Google yanks Google Earth AI image tool one day after launch over deepfake fears",
-    "Google Yanks Google Earth AI 图像工具在 Deepfake Fears 发布后的第二天推出",
-    "zh",
-  ), false);
 });
 
 test("clusters only the same event, not unrelated stories sharing an asset", () => {

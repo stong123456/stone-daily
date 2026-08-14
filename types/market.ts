@@ -128,6 +128,7 @@ export interface EditorialDigestItem {
   id: string;
   category: "币股" | "币圈";
   title: string;
+  originalLanguage: "zh" | "en";
   relatedAssets: string[];
   sources: Array<{ name: string; url: string }>;
   publishedAt: string;
@@ -136,8 +137,7 @@ export interface EditorialDigestItem {
 export interface EditorialDigest {
   language: "zh" | "en";
   items: EditorialDigestItem[];
-  translatedCount: number;
-  mode: "translated" | "native-only";
+  mode: "native-only";
 }
 
 export interface EditorialSourceHealth {

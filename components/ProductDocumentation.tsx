@@ -61,7 +61,7 @@ const features = [
     eyebrow: "Daily briefing",
     title: "每日热点",
     description: "按北京时间从当日候选信息中重建热点排名，并分别呈现事实、影响、风险和来源。",
-    detail: "分享摘要会整合中英文币圈与币股来源，翻译成当前界面语言后跨语言去重；热度不是推荐。",
+    detail: "中文与英文资讯分别筛选、去重、排序并保留原文，不调用 AI 翻译；用户需要时可使用浏览器内置翻译。",
     Icon: Newspaper,
   },
   {
@@ -148,7 +148,7 @@ const tocEn = [
 const featuresEn = [
   { href: "/account", eyebrow: "Personal home", title: "My Stone Daily", description: "A guest-first home for today's priorities, watchlists, alerts, pause records and sync status.", detail: "Wallet sign-in is optional; the dashboard never presents PnL, positions or personalized trade advice.", Icon: UserCircle },
   { href: "/markets", eyebrow: "Market terminal", title: "One-stop live markets", description: "Aggregate crypto spot and tokenized-stock products with search, venue buttons, sector filters, gain sorting and watchlists.", detail: "Quotes remain venue-specific; incompatible volume fields are never presented as a global total.", Icon: ChartLineUp },
-  { href: "/hotspots", eyebrow: "Daily briefing", title: "Daily Pulse", description: "Rebuild same-day stories in Beijing time and separate facts, relevance, risk and original sources.", detail: "Share digests combine Chinese and English crypto and tokenized-stock sources, translate into the active UI language and deduplicate across languages.", Icon: Newspaper },
+  { href: "/hotspots", eyebrow: "Daily briefing", title: "Daily Pulse", description: "Rebuild same-day stories in Beijing time and separate facts, relevance, risk and original sources.", detail: "Chinese and English stories are filtered, deduplicated and ranked in separate original-language sections; browser translation remains optional.", Icon: Newspaper },
   { href: "/live", eyebrow: "Live wire", title: "7×24 market wire", description: "A standalone feed for global, macro, tokenized-stock, crypto, technology and regulatory stories.", detail: "Filter by category and source, paginate, refresh and inspect every provider's health.", Icon: Broadcast },
   { href: "/calendar", eyebrow: "Macro schedule", title: "Economic calendar", description: "Beijing-time events with region, importance, actual, forecast and previous values.", detail: "Defaults to all events and distinguishes live schedules from reviewed catalogues.", Icon: CalendarCheck },
   { href: "/today", eyebrow: "Market memory", title: "On This Day", description: "Retrieve traceable events for today's month and day, ranked for market, institutional and technology relevance.", detail: "If no reliable result exists, the page shows an unavailable state instead of a hard-coded story.", Icon: CalendarDots },

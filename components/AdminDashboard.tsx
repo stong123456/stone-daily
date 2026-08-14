@@ -28,7 +28,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAccountSync } from "@/components/AccountSyncProvider";
 import { useAppState } from "@/components/AppStateProvider";
 import type { AdminAnalyticsBreakdown, AdminOverview } from "@/types/admin";
-import type { DataProviderStatus, DataTrustSnapshot } from "@/types/market";
+import type { DataProviderStatus, DataTrustSnapshot, EditorialFeedSnapshot } from "@/types/market";
 
 const ranges = [7, 14, 30, 90] as const;
 const featureCopy: Record<string, [string, string]> = {
@@ -61,6 +61,7 @@ export function AdminDashboard() {
   const en = language === "en";
   const [overview, setOverview] = useState<AdminOverview | null>(null);
   const [trust, setTrust] = useState<DataTrustSnapshot | null>(null);
+  const [editorialSnapshot, setEditorialSnapshot] = useState<EditorialFeedSnapshot | null>(null);
   const [rangeDays, setRangeDays] = useState<(typeof ranges)[number]>(14);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -70,17 +71,20 @@ export function AdminDashboard() {
     setLoading(true);
     setError("");
     try {
-      const [adminResponse, trustResponse] = await Promise.all([
+      const [adminResponse, trustResponse, editorialResponse] = await Promise.all([
         fetch(`/api/admin/overview?days=${rangeDays}`, { cache: "no-store" }),
         fetch("/api/status", { cache: "no-store" }),
+        fetch("/api/editorial?digest=native-v1", { cache: "no-store" }),
       ]);
-      if (!adminResponse.ok || !trustResponse.ok) throw new Error("admin_load_failed");
-      const [adminValue, trustValue] = await Promise.all([
+      if (!adminResponse.ok || !trustResponse.ok || !editorialResponse.ok) throw new Error("admin_load_failed");
+      const [adminValue, trustValue, editorialValue] = await Promise.all([
         adminResponse.json() as Promise<AdminOverview>,
         trustResponse.json() as Promise<DataTrustSnapshot>,
+        editorialResponse.json() as Promise<EditorialFeedSnapshot>,
       ]);
       setOverview(adminValue);
       setTrust(trustValue);
+      setEditorialSnapshot(editorialValue);
     } catch {
       setError("admin_load_failed");
     } finally {
@@ -117,7 +121,7 @@ export function AdminDashboard() {
     {error ? <div className="admin-error"><WarningCircle size={18} />{en ? "The latest admin snapshot could not be loaded. The previous snapshot is still shown." : "暂时无法读取最新后台快照，页面保留上一次成功结果。"}</div> : null}
 
     <div className="admin-workbench">
-      <nav className="admin-rail" aria-label={en ? "Admin sections" : "后台板块"}><strong>{en ? "Workspace" : "工作台"}</strong><a href="#traffic"><ChartLineUp size={18} />{en ? "Traffic" : "访问分析"}</a><a href="#content"><Eye size={18} />{en ? "Content" : "页面表现"}</a><a href="#features"><Funnel size={18} />{en ? "Features" : "功能使用"}</a><a href="#accounts"><UserCircle size={18} />{en ? "Accounts" : "用户账号"}</a><a href="#providers"><Pulse size={18} />{en ? "Providers" : "数据源"}</a><a href="#security"><ShieldCheck size={18} />{en ? "Privacy" : "隐私安全"}</a><div><LockKey size={20} /><span>{en ? "Read-only operations" : "只读运营模式"}</span><small>{en ? "No user deletion or content override" : "不开放用户删除或内容强改"}</small></div></nav>
+      <nav className="admin-rail" aria-label={en ? "Admin sections" : "后台板块"}><strong>{en ? "Workspace" : "工作台"}</strong><a href="#traffic"><ChartLineUp size={18} />{en ? "Traffic" : "访问分析"}</a><a href="#content"><Eye size={18} />{en ? "Content" : "页面表现"}</a><a href="#features"><Funnel size={18} />{en ? "Features" : "功能使用"}</a><a href="#accounts"><UserCircle size={18} />{en ? "Accounts" : "用户账号"}</a><a href="#editorial"><CheckCircle size={18} />{en ? "Editorial QA" : "新闻质检"}</a><a href="#providers"><Pulse size={18} />{en ? "Providers" : "数据源"}</a><a href="#security"><ShieldCheck size={18} />{en ? "Privacy" : "隐私安全"}</a><div><LockKey size={20} /><span>{en ? "Read-only operations" : "只读运营模式"}</span><small>{en ? "No user deletion or content override" : "不开放用户删除或内容强改"}</small></div></nav>
 
       <div className="admin-content">
         <section className="admin-toolbar" id="traffic"><div><span>{en ? "Audience window" : "访客时间范围"}</span><strong>{en ? `Last ${rangeDays} days` : `最近 ${rangeDays} 天`}</strong></div><div className="admin-range" role="group" aria-label={en ? "Analytics range" : "分析时间范围"}>{ranges.map((days) => <button aria-pressed={rangeDays === days} data-active={rangeDays === days} disabled={loading} key={days} onClick={() => setRangeDays(days)} type="button">{days}{en ? "d" : "天"}</button>)}</div><a className="button button--secondary" href={`/api/admin/analytics/export?days=${rangeDays}`}><DownloadSimple size={17} />{en ? "Export CSV" : "导出 CSV"}</a></section>
@@ -141,6 +145,8 @@ export function AdminDashboard() {
           <article className="admin-panel admin-browser-panel"><header><div><span>{en ? "Compatibility" : "浏览环境"}</span><h2>{en ? "Browser families" : "浏览器分布"}</h2></div><Browsers size={21} /></header><BreakdownList directLabel="" empty={en ? "No browser data yet" : "还没有浏览器数据"} rows={analytics?.browsers ?? []} /></article>
           <article className="admin-panel admin-account-panel" id="accounts"><header><div><span>{en ? "Account adoption" : "账号采用"}</span><h2>{en ? "Wallet sync usage" : "钱包同步使用"}</h2></div><Wallet size={21} /></header><dl><div><dt>{en ? "Accounts" : "钱包账号"}</dt><dd>{overview ? formatMetric(overview.accounts.total) : "—"}</dd></div><div><dt>{en ? "Active in 7d" : "近 7 日活跃"}</dt><dd>{overview ? formatMetric(overview.accounts.active7d) : "—"}</dd></div><div><dt>{en ? "Sync revisions" : "同步版本累计"}</dt><dd>{overview ? formatMetric(overview.accounts.syncRevisions) : "—"}</dd></div><div><dt>{en ? "Auth challenges / 24h" : "24h 登录挑战"}</dt><dd>{overview ? `${overview.walletAuth.completed24h}/${overview.walletAuth.challenges24h}` : "—"}</dd></div></dl><footer><CloudCheck size={17} />{en ? "Only user-owned watchlists, alerts and pause records are synced." : "只同步用户自己的自选、提醒与冷静记录。"}</footer></article>
         </section>
+
+        <section className="admin-panel admin-editorial-panel" id="editorial"><header><div><span>{en ? "Editorial integrity" : "新闻严谨度"}</span><h2>{en ? "Original-language publishing" : "中英文原文分区"}</h2></div><strong data-status="healthy">{en ? "Zero AI translation" : "零 AI 翻译"}</strong></header><div className="admin-editorial-metrics"><div><span>{en ? "Chinese digest" : "中文摘要"}</span><strong>{editorialSnapshot?.digests?.zh.items.length ?? "—"}</strong></div><div><span>{en ? "English digest" : "英文摘要"}</span><strong>{editorialSnapshot?.digests?.en.items.length ?? "—"}</strong></div><div><span>{en ? "Live editorial sources" : "在线新闻源"}</span><strong>{editorialSnapshot ? editorialSnapshot.providers.filter((item) => item.status === "live").length : "—"}</strong></div><div><span>{en ? "Original candidates" : "原文候选"}</span><strong>{editorialSnapshot?.items.length ?? "—"}</strong></div></div><div className="admin-empty admin-empty--compact"><span>{en ? "Chinese and English headlines are filtered, deduplicated and ranked separately. No translation request is sent." : "中英文标题分别筛选、去重和排序，不发送任何翻译请求。"}</span></div><footer className="admin-editorial-note"><ShieldCheck size={16} />{en ? "Source links and original wording remain the editorial evidence." : "来源链接与原始措辞是新闻证据，不以机器译文替代。"}</footer></section>
 
         <section className="admin-bottom-grid" id="providers"><article className="admin-panel"><header><div><span>{en ? "Data trust" : "数据可信度"}</span><h2>{en ? "Provider health" : "数据源健康"}</h2></div><strong data-status={trust?.overall ?? "loading"}>{trust ? `${trust.checks.live}/${trust.checks.total} live` : (en ? "Checking" : "检查中")}</strong></header><div className="admin-provider-list">{providers.slice(0, 22).map((provider: DataProviderStatus) => <div key={`${provider.surface}-${provider.name}`}><i data-status={provider.status} /><span><strong>{provider.name}</strong><small>{provider.surface} · {provider.itemCount} {en ? "records" : "条"}</small></span><em>{provider.status}</em>{provider.latencyMs ? <time>{provider.latencyMs}ms</time> : <time>—</time>}</div>)}</div></article>
           <aside className="admin-panel admin-security" id="security"><header><div><span>{en ? "Access boundary" : "权限边界"}</span><h2>{en ? "Privacy & security" : "隐私与管理员安全"}</h2></div><LockKey size={22} /></header><ul><li><CheckCircle size={17} />{en ? "Every admin API request checks the server-side wallet allowlist." : "每次管理员 API 请求都会校验服务端钱包白名单。"}</li><li><CheckCircle size={17} />{en ? "Visitor keys are rotating salted hashes; raw IP and full user-agent strings are not stored." : "访客标识是定期轮换的加盐哈希，不保存原始 IP 与完整 User-Agent。"}</li><li><CheckCircle size={17} />{en ? `Aggregated analytics is retained for ${analytics?.retentionDays ?? 180} days and uses no analytics cookie.` : `汇总分析保留 ${analytics?.retentionDays ?? 180} 天，不设置分析 Cookie。`}</li><li><CheckCircle size={17} />{en ? "This dashboard is read-only: no user deletion, content override or wallet asset access." : "后台保持只读：不开放用户删除、内容强改或钱包资产访问。"}</li><li><CheckCircle size={17} />{en ? "Wallet signatures are verified and then discarded." : "钱包签名完成校验后不会保存。"}</li></ul><footer><ShieldCheck size={16} />{en ? "Privacy-friendly by design" : "隐私友好设计"}</footer></aside></section>
