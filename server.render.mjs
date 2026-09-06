@@ -82,7 +82,7 @@ const gateway = createServer(async (request, response) => {
 
   if (url.pathname === "/healthz") {
     const [webHealthy, streamHealthy] = await Promise.all([
-      serviceHealthy(webPort, "/api/status"),
+      serviceHealthy(webPort, "/api/health"),
       serviceHealthy(streamPort, "/health"),
     ]);
     response.writeHead(webHealthy && streamHealthy ? 200 : 503, {
