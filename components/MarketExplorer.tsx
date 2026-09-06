@@ -25,7 +25,7 @@ type FeedStatus = { source: string; mode: "loading" | "live" | "cached" | "fallb
 
 const pageSize = 12;
 const defaultStreamSymbols = "BTC,ETH,SOL,XRP,DOGE,ADA,AVAX,LINK,LTC,BCH,BNB,SUI";
-const defaultMarketStreamUrl = "https://stone-daily-production.up.railway.app";
+const defaultMarketStreamPath = "/stream";
 
 const sectorTranslations: Record<string, string> = {
   全部: "All",
@@ -122,12 +122,12 @@ export function MarketExplorer() {
   }, [cryptoStatus, stockStatus, tab]);
 
   useEffect(() => {
-    const baseUrl = (process.env.NEXT_PUBLIC_MARKET_STREAM_URL || defaultMarketStreamUrl).trim().replace(/\/$/, "");
+    const baseUrl = (process.env.NEXT_PUBLIC_MARKET_STREAM_URL || defaultMarketStreamPath).trim().replace(/\/$/, "");
     if (!baseUrl || typeof EventSource === "undefined") return;
 
     let streamUrl: URL;
     try {
-      streamUrl = new URL(`${baseUrl}/events`);
+      streamUrl = new URL(`${baseUrl}/events`, window.location.origin);
     } catch {
       return;
     }
@@ -147,7 +147,7 @@ export function MarketExplorer() {
         setCryptoStatus((status) => status ? {
           ...status,
           mode: "live",
-          source: status.source.includes("Railway 秒级流") ? status.source : `${status.source} + Railway 秒级流`,
+          source: status.source.includes("共享秒级流") ? status.source : `${status.source} + 共享秒级流`,
           spreads: calculateMarketSpreads(merged.assets),
           streaming: merged.streaming,
           updatedAt: snapshot.updatedAt,

@@ -1,0 +1,31 @@
+services:
+  - type: web
+    name: stone-daily
+    runtime: docker
+    repo: https://github.com/stong123456/stone-daily
+    branch: main
+    plan: free
+    region: singapore
+    dockerfilePath: ./Dockerfile.render
+    dockerContext: .
+    healthCheckPath: /healthz
+    maxShutdownDelaySeconds: 30
+    autoDeployTrigger: commit
+    domains:
+      - stonedaily.xyz
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: STONE_PUBLIC_ORIGIN
+        value: https://stonedaily.xyz
+      - key: MARKET_STREAM_ALLOWED_ORIGINS
+        value: https://stonedaily.xyz,https://www.stonedaily.xyz
+      - key: MARKET_STREAM_BROADCAST_MS
+        value: "1000"
+      - key: MARKET_STREAM_MAX_CLIENTS
+        value: "500"
+      - key: STONE_SESSION_SECRET
+        generateValue: true
+      - key: STONE_ANALYTICS_SALT
+        generateValue: true
+
