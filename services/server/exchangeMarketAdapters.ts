@@ -30,7 +30,8 @@ export type MarketProviderAdapter = {
 type BinanceTicker = {
   symbol: string;
   lastPrice: string;
-  priceChangePercent: string;
+  priceChangePercent?: string;
+  openPrice?: string;
   quoteVolume: string;
 };
 
@@ -158,6 +159,11 @@ const STABLE_QUOTES = new Set(["USDT", "USDC", "USD", "USDG"]);
 const STABLE_QUOTES_BY_LENGTH = [...STABLE_QUOTES].sort((a, b) => b.length - a.length);
 const BLOCKED_SUFFIXES = ["UP", "DOWN", "BULL", "BEAR"];
 const BINANCE_FEATURED_TICKERS = ["AAPL", "NVDA", "TSLA", "MSFT", "AMZN", "META", "GOOGL", "QQQ"];
+const MARKET_FETCH_TIMEOUT_MS = 14_000;
+const MARKET_REQUEST_HEADERS = {
+  Accept: "application/json",
+  "User-Agent": "StoneDaily/1.0 (+https://stonedaily.xyz)",
+};
 
 const STOCK_NAMES: Record<string, string> = {
   AAPL: "苹果",
@@ -218,11 +224,16 @@ function krakenFuturesXStockUnderlying(instrument: KrakenFuturesInstrument) {
   return (suffixMatch?.[1] ?? instrument.base.replace(/x$/i, "")).toUpperCase();
 }
 
-async function fetchJson<T>(url: string, revalidate = 8, headers?: HeadersInit, cacheMode: "next" | "no-store" = "next"): Promise<T> {
+async function fetchJson<T>(url: string, _revalidate = 8, headers?: HeadersInit, _cacheMode: "next" | "no-store" = "next"): Promise<T> {
+  const requestHeaders = new Headers(MARKET_REQUEST_HEADERS);
+  new Headers(headers).forEach((value, key) => requestHeaders.set(key, value));
   const response = await fetch(url, {
-    headers,
-    ...(cacheMode === "no-store" ? { cache: "no-store" as const } : { next: { revalidate } }),
-    signal: AbortSignal.timeout(6500),
+    headers: requestHeaders,
+    // Processed market snapshots already have their own short-lived cache. Caching
+    // the exchanges' multi-megabyte raw payloads again in Next.js caused slow disk
+    // writes and timeout cascades on small production instances.
+    cache: "no-store",
+    signal: AbortSignal.timeout(MARKET_FETCH_TIMEOUT_MS),
   });
   if (!response.ok) throw new Error(`${new URL(url).hostname} ${response.status}`);
   return response.json() as Promise<T>;
@@ -260,19 +271,22 @@ function cryptoAsset(input: {
 }
 
 async function fetchBinanceCrypto(): Promise<ProviderResult> {
-  const tickers = await fetchJson<BinanceTicker[]>("https://data-api.binance.vision/api/v3/ticker/24hr", 5, undefined, "no-store");
+  const tickers = await fetchJson<BinanceTicker[]>("https://api-gcp.binance.com/api/v3/ticker/24hr?type=MINI", 5, undefined, "no-store");
   const assets = tickers.flatMap((ticker): MarketAsset[] => {
     if (!ticker.symbol.endsWith("USDT")) return [];
     const symbol = ticker.symbol.replace(/USDT$/, "");
     if (BLOCKED_SUFFIXES.some((suffix) => symbol.endsWith(suffix))) return [];
     const price = numberOrZero(ticker.lastPrice);
     if (!price) return [];
+    const open = numberOrZero(ticker.openPrice);
     return [cryptoAsset({
       venue: "Binance",
       symbol,
       quote: "USDT",
       price,
-      change24h: numberOrZero(ticker.priceChangePercent),
+      change24h: ticker.priceChangePercent !== undefined
+        ? numberOrZero(ticker.priceChangePercent)
+        : open ? ((price - open) / open) * 100 : 0,
       volume: numberOrZero(ticker.quoteVolume),
     })];
   });

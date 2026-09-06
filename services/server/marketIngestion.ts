@@ -59,7 +59,9 @@ async function runAdapters(adapters: MarketProviderAdapter[]): Promise<ProviderO
     try {
       const result = await adapter.load();
       return { adapter, result, latencyMs: Math.round(performance.now() - startedAt) };
-    } catch {
+    } catch (error) {
+      const reason = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+      console.warn(`[market-provider] ${adapter.name} (${adapter.product}) unavailable: ${reason}`);
       return { adapter, latencyMs: Math.round(performance.now() - startedAt) };
     }
   }));
