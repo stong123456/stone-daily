@@ -9,7 +9,6 @@ services:
     dockerfilePath: ./Dockerfile.render
     dockerContext: .
     healthCheckPath: /healthz
-    maxShutdownDelaySeconds: 30
     autoDeployTrigger: commit
     domains:
       - stonedaily.xyz
@@ -28,4 +27,3 @@ services:
         generateValue: true
       - key: STONE_ANALYTICS_SALT
         generateValue: true
-
