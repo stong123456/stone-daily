@@ -485,6 +485,8 @@ html[data-theme] .home-hero__meta,html[data-theme] .home-hero__landscape{display
 .market-intelligence__body{padding:18px;background:linear-gradient(180deg,var(--surface),var(--surface-2))}
 .market-intelligence__body .market-intelligence__header{margin-bottom:15px}
 .market-table__head{background:color-mix(in srgb,var(--surface-2),transparent 28%)}
+.market-table{display:grid;grid-template-columns:minmax(145px,1.05fr) 130px 90px 110px minmax(230px,1.7fr) auto;column-gap:14px}
+.market-table__head,.market-table>.asset-row{grid-column:1/-1;grid-template-columns:subgrid}
 .market-table .asset-row{transition:background .15s}
 .market-table .asset-row:hover{background:color-mix(in srgb,var(--accent-soft),transparent 44%)}
 .market-table .asset-cell--name strong{font-size:14px}
@@ -493,7 +495,16 @@ html[data-theme] .home-hero__meta,html[data-theme] .home-hero__landscape{display
 .market-table .asset-change.is-positive{background:color-mix(in srgb,var(--positive),transparent 89%)}
 .market-table .asset-change.is-negative{background:color-mix(in srgb,var(--negative),transparent 89%)}
 
+@media(max-width:1180px){
+  .market-table{grid-template-columns:minmax(140px,1fr) 115px 80px minmax(200px,1.3fr) auto}
+}
+
+@media(max-width:900px){
+  .market-table{grid-template-columns:minmax(150px,1fr) 110px 85px auto}
+}
+
 @media(max-width:640px){
+  .market-table{grid-template-columns:minmax(0,1fr) auto;column-gap:7px}
   .market-intelligence__summary{min-height:58px;padding:0 12px;grid-template-columns:minmax(0,1fr) auto;gap:9px}
   .market-intelligence__summary-metric{display:none}
   .market-intelligence__summary-toggle{padding-inline:8px}
