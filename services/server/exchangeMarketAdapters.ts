@@ -224,7 +224,7 @@ function krakenFuturesXStockUnderlying(instrument: KrakenFuturesInstrument) {
   return (suffixMatch?.[1] ?? instrument.base.replace(/x$/i, "")).toUpperCase();
 }
 
-async function fetchJson<T>(url: string, _revalidate = 8, headers?: HeadersInit, _cacheMode: "next" | "no-store" = "next"): Promise<T> {
+export async function fetchJson<T>(url: string, _revalidate = 8, headers?: HeadersInit, _cacheMode: "next" | "no-store" = "next"): Promise<T> {
   const requestHeaders = new Headers(MARKET_REQUEST_HEADERS);
   new Headers(headers).forEach((value, key) => requestHeaders.set(key, value));
   const response = await fetch(url, {
