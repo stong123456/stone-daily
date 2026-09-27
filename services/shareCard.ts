@@ -1,4 +1,5 @@
 import { canonicalAssetSymbol, type LiveMarketWeather } from "@/services/marketWeather";
+import type { BinanceWeatherSnapshot } from "@/services/binanceWeather";
 
 export type ShareCardKind = "ai" | "calm" | "detox" | "daily";
 
@@ -31,9 +32,11 @@ export interface ShareCardContent {
   signals?: ShareCardDatum[];
   score?: number;
   leaders?: ShareCardLeader[];
+  decliners?: ShareCardLeader[];
   sections?: ShareCardSection[];
   riskNote?: string;
   updatedAt?: string;
+  shareText?: string;
   language?: "zh" | "en";
 }
 
@@ -134,6 +137,12 @@ export function buildMarketShareContent(weather: LiveMarketWeather, language: "z
       venue: asset.venue || (en ? "Market feed" : "行情源"),
       change: `${asset.change24h >= 0 ? "+" : ""}${asset.change24h.toFixed(2)}%`,
     })),
+    decliners: weather.laggards.slice(0, 3).map((asset, index) => ({
+      rank: index + 1,
+      symbol: canonicalAssetSymbol(asset),
+      venue: asset.venue || (en ? "Market feed" : "行情源"),
+      change: `${asset.change24h >= 0 ? "+" : ""}${asset.change24h.toFixed(2)}%`,
+    })),
     sections: [
       { title: en ? "Three things that matter today" : "今天最重要的三件事", items: weather.highlights.slice(0, 3) },
       { title: en ? "Where the market is leaning" : "市场正在偏向哪里", items: [leaning] },
@@ -144,6 +153,60 @@ export function buildMarketShareContent(weather: LiveMarketWeather, language: "z
     detail: weather.totalProviders
       ? (en ? `${weather.liveProviders}/${weather.totalProviders} feeds live · Beijing ${updatedAt}` : `${weather.liveProviders}/${weather.totalProviders} 个行情源在线｜北京时间 ${updatedAt}`)
       : (en ? `Market snapshot · Beijing ${updatedAt}` : `市场快照｜北京时间 ${updatedAt}`),
+  };
+}
+
+export function buildBinanceMarketShareContent(snapshot: BinanceWeatherSnapshot, language: "zh" | "en"): Omit<ShareCardContent, "language"> {
+  const en = language === "en";
+  const weather = snapshot.weather;
+  const updatedAt = new Intl.DateTimeFormat(en ? "en-GB" : "zh-CN", {
+    timeZone: "Asia/Shanghai",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(new Date(snapshot.updatedAt));
+  const gains = [...snapshot.crypto.gainers.slice(0, 2), ...snapshot.stocks.gainers.slice(0, 2)]
+    .sort((a, b) => b.change24h - a.change24h)
+    .slice(0, 3);
+  const losses = [...snapshot.crypto.decliners.slice(0, 2), ...snapshot.stocks.decliners.slice(0, 2)]
+    .sort((a, b) => a.change24h - b.change24h)
+    .slice(0, 3);
+  const leaders = (assets: typeof gains) => assets.map((asset, index) => ({
+    rank: index + 1,
+    symbol: canonicalAssetSymbol(asset),
+    venue: asset.market === "stock" ? "Binance Web3" : "Binance Spot",
+    change: `${asset.change24h >= 0 ? "+" : ""}${asset.change24h.toFixed(2)}%`,
+  }));
+
+  return {
+    kind: "daily",
+    title: en ? `Binance · ${weather.weather}` : `Binance · ${weather.weather}`,
+    summary: weather.headline,
+    metrics: [
+      { label: en ? "BINANCE CRYPTO" : "币安加密温度", value: String(weather.cryptoTemperature), detail: `${en ? "Breadth" : "上涨广度"} ${snapshot.crypto.breadth}% · ${snapshot.crypto.rankedCount} ${en ? "eligible pairs" : "个有效样本"}`, progress: weather.cryptoTemperature },
+      { label: en ? "WEB3 TOKENIZED STOCKS" : "Binance Web3 币股", value: String(weather.stockTemperature), detail: `${en ? "Breadth" : "上涨广度"} ${snapshot.stocks.breadth}% · ${snapshot.stocks.pricedCount}/${snapshot.stocks.catalogCount} ${en ? "priced" : "个取得报价"}`, progress: weather.stockTemperature },
+      { label: en ? "FOMO INDEX" : "FOMO 指数", value: String(weather.fomoIndex), detail: `${weather.highVolatilityShare}% ${en ? "moved more than 5%" : "的样本波动超过 5%"}`, progress: weather.fomoIndex },
+      { label: en ? "BINANCE BREADTH" : "Binance 上涨广度", value: `${weather.breadth}%`, detail: `${en ? "Median absolute move" : "中位绝对波动"} ${weather.volatility.toFixed(2)}%`, progress: weather.breadth },
+    ],
+    signals: [
+      { label: en ? "CRYPTO LEADER" : "加密领涨", value: snapshot.crypto.gainers[0] ? `${canonicalAssetSymbol(snapshot.crypto.gainers[0])} +${snapshot.crypto.gainers[0].change24h.toFixed(2)}%` : (en ? "Waiting" : "待更新") },
+      { label: en ? "STOCK-TOKEN LEADER" : "币股领涨", value: snapshot.stocks.gainers[0] ? `${canonicalAssetSymbol(snapshot.stocks.gainers[0])} +${snapshot.stocks.gainers[0].change24h.toFixed(2)}%` : (en ? "Waiting" : "待更新") },
+      { label: en ? "HIGH VOL" : "高波动占比", value: `${weather.highVolatilityShare}%` },
+    ],
+    score: weather.score,
+    leaders: leaders(gains),
+    decliners: leaders(losses),
+    sections: [
+      { title: en ? "Binance crypto spot" : "Binance 加密现货", items: [en ? `Breadth ${snapshot.crypto.breadth}% across ${snapshot.crypto.rankedCount} eligible pairs.` : `上涨广度 ${snapshot.crypto.breadth}%，榜单纳入 ${snapshot.crypto.rankedCount} 个有效 USDT 样本。`] },
+      { title: en ? "Web3 tokenized stocks" : "Binance Web3 币股", items: [en ? `${snapshot.stocks.pricedCount}/${snapshot.stocks.catalogCount} catalogue underlyings returned live dynamics.` : `${snapshot.stocks.pricedCount}/${snapshot.stocks.catalogCount} 个目录标的取得动态报价；代币不等于登记股票。`] },
+      { title: en ? "How to read it" : "今天怎么读", items: [en ? "Confirm breadth and depth before extrapolating one extreme mover to the whole market." : "先看上涨广度能否持续，再看领涨资产成交深度，不用一个极端涨幅概括整个市场。"] },
+    ],
+    riskNote: weather.riskNote,
+    updatedAt,
+    detail: en ? `2 official Binance public feeds · Beijing ${updatedAt}` : `2 条 Binance 官方公开源｜北京时间 ${updatedAt}`,
+    shareText: en ? snapshot.copy.en : snapshot.copy.zh,
   };
 }
 
@@ -267,12 +330,17 @@ async function renderMarketWeatherCard(
 
   context.fillStyle = "#075dad";
   context.font = "800 14px system-ui, 'Noto Sans SC', sans-serif";
-  context.fillText(en ? "LIVE LEADERS" : "实时领涨", 54, 483);
+  const hasDecliners = Boolean(content.decliners?.length);
+  context.fillText(hasDecliners ? (en ? "GAINERS / DECLINERS" : "涨幅榜 / 跌幅榜") : (en ? "LIVE LEADERS" : "实时领涨"), 54, 483);
   context.fillStyle = "#6c7f8c";
   context.font = "500 12px system-ui, 'Noto Sans SC', sans-serif";
-  drawWrappedText(context, en ? "Deduplicated by symbol; higher-volume venue quotes take priority" : "按代码去重，优先采用成交量更高的交易所报价", 54, 507, 176, 3, 17);
+  drawWrappedText(context, hasDecliners
+    ? (en ? "Top row: gainers · Bottom row: decliners" : "上排看领涨，下排看领跌；涨跌同屏才完整")
+    : (en ? "Deduplicated by symbol; higher-volume venue quotes take priority" : "按代码去重，优先采用成交量更高的交易所报价"), 54, 507, 176, 3, 17);
 
-  const leaders = content.leaders?.slice(0, 6) ?? [];
+  const leaders = hasDecliners
+    ? [...(content.leaders?.slice(0, 3) ?? []), ...(content.decliners?.slice(0, 3) ?? [])]
+    : content.leaders?.slice(0, 6) ?? [];
   const leaderGap = 10;
   const leaderWidth = (894 - leaderGap * 2) / 3;
   leaders.forEach((leader, index) => {

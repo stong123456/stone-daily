@@ -41,9 +41,9 @@ export function ShareCardButton({ content, className = "button button--secondary
     if (!blob) return;
     const file = new File([blob], "stone-daily.png", { type: "image/png" });
     if (navigator.share && navigator.canShare?.({ files: [file] })) {
-      await navigator.share({ title: content.title, text: content.summary, files: [file] });
+      await navigator.share({ title: content.title, text: content.shareText || content.summary, files: [file] });
     } else {
-      await navigator.clipboard?.writeText(`${content.title}\n${content.summary}\nhttps://stonedaily.xyz`);
+      await navigator.clipboard?.writeText(content.shareText || `${content.title}\n${content.summary}\nhttps://stonedaily.xyz`);
       download();
     }
     setShared(true);

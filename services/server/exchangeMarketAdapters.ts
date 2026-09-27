@@ -158,7 +158,17 @@ type BinanceStockDynamic = {
 const STABLE_QUOTES = new Set(["USDT", "USDC", "USD", "USDG"]);
 const STABLE_QUOTES_BY_LENGTH = [...STABLE_QUOTES].sort((a, b) => b.length - a.length);
 const BLOCKED_SUFFIXES = ["UP", "DOWN", "BULL", "BEAR"];
-const BINANCE_FEATURED_TICKERS = ["AAPL", "NVDA", "TSLA", "MSFT", "AMZN", "META", "GOOGL", "QQQ"];
+// Binance Web3 exposes hundreds of Ondo underlyings but its dynamic endpoint is
+// per contract. Keep the weather request bounded while covering the liquid
+// indices, mega-cap technology names, crypto proxies and broad sectors people
+// most often use to read risk appetite.
+const BINANCE_FEATURED_TICKERS = [
+  "SPY", "QQQ", "DIA", "IWM", "GLD", "SLV", "TLT", "EEM",
+  "AAPL", "NVDA", "TSLA", "MSFT", "AMZN", "META", "GOOGL", "NFLX",
+  "AMD", "INTC", "AVGO", "ORCL", "PLTR", "CRM", "ADBE", "UBER",
+  "COIN", "MSTR", "HOOD", "CRCL", "JPM", "BAC", "V", "MA",
+  "XOM", "CVX", "LLY", "NVO", "WMT", "COST", "DIS", "NKE",
+];
 const MARKET_FETCH_TIMEOUT_MS = 14_000;
 const MARKET_REQUEST_HEADERS = {
   Accept: "application/json",
@@ -743,6 +753,21 @@ async function fetchBinanceOnchainStocks(): Promise<ProviderResult> {
   }));
   const assets = dynamicResults.flatMap((result) => result.status === "fulfilled" && result.value.price ? [result.value] : []);
   return { assets, count: listingByTicker.size, status: assets.length ? "live" : "catalog" };
+}
+
+export async function fetchBinanceWeatherMarkets() {
+  const [crypto, stocks] = await Promise.allSettled([
+    fetchBinanceCrypto(),
+    fetchBinanceOnchainStocks(),
+  ]);
+  return {
+    crypto: crypto.status === "fulfilled" ? crypto.value : undefined,
+    stocks: stocks.status === "fulfilled" ? stocks.value : undefined,
+    errors: [
+      crypto.status === "rejected" ? `crypto:${crypto.reason instanceof Error ? crypto.reason.message : String(crypto.reason)}` : "",
+      stocks.status === "rejected" ? `stocks:${stocks.reason instanceof Error ? stocks.reason.message : String(stocks.reason)}` : "",
+    ].filter(Boolean),
+  };
 }
 
 export const cryptoProviderAdapters: MarketProviderAdapter[] = [

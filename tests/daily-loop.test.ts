@@ -3,6 +3,7 @@ import test from "node:test";
 import { aiDailyLimit, normalizeAIUsage } from "../services/aiUsage.ts";
 import { buildDailyRankings, buildFocusShortlist, compactExplanation, selectFeaturedAssets } from "../services/dailyMarket.ts";
 import { classifyMarketWeather } from "../services/marketWeather.ts";
+import { buildBinanceWeatherSnapshot } from "../services/binanceWeather.ts";
 import type { MarketAsset } from "../types/market.ts";
 
 function asset(input: Partial<MarketAsset> & Pick<MarketAsset, "id" | "symbol" | "market">): MarketAsset {
@@ -79,6 +80,35 @@ test("market weather distinguishes volatility, divergence, trend and quiet-range
 
   assert.deepEqual(conditions, ["updraft", "cold-front", "crypto-clear", "stocks-clear", "clear-warming", "cold-wave", "quiet-cloud", "cloudy-rotation"]);
   assert.equal(new Set(conditions).size, conditions.length);
+});
+
+test("Binance weather separates crypto and tokenized-stock gainers and decliners", () => {
+  const snapshot = buildBinanceWeatherSnapshot({
+    cryptoAssets: [
+      asset({ id: "binance-btc", symbol: "BTC", market: "crypto", venue: "Binance", change24h: 5, volume: 2_000_000 }),
+      asset({ id: "binance-eth", symbol: "ETH", market: "crypto", venue: "Binance", change24h: -3, volume: 1_000_000 }),
+      asset({ id: "binance-usdt", symbol: "USDT", market: "crypto", venue: "Binance", change24h: 0.1, volume: 9_000_000 }),
+      asset({ id: "binance-low", symbol: "LOW", market: "crypto", venue: "Binance", change24h: 80, volume: 99_999 }),
+    ],
+    stockAssets: [
+      asset({ id: "binance-rwa-nvda", symbol: "NVDAon", underlying: "NVDA", market: "stock", venue: "Binance Web3", change24h: 2, volume: 0 }),
+      asset({ id: "binance-rwa-tsla", symbol: "TSLAon", underlying: "TSLA", market: "stock", venue: "Binance Web3", change24h: -4, volume: 0 }),
+    ],
+    cryptoCatalogCount: 4,
+    stockCatalogCount: 459,
+    cryptoLive: true,
+    stockLive: true,
+    updatedAt: "2026-09-27T00:00:00.000Z",
+  });
+
+  assert.equal(snapshot.mode, "live");
+  assert.equal(snapshot.crypto.rankedCount, 2);
+  assert.deepEqual(snapshot.crypto.gainers.map((item) => item.symbol), ["BTC"]);
+  assert.deepEqual(snapshot.crypto.decliners.map((item) => item.symbol), ["ETH"]);
+  assert.deepEqual(snapshot.stocks.gainers.map((item) => item.underlying), ["NVDA"]);
+  assert.deepEqual(snapshot.stocks.decliners.map((item) => item.underlying), ["TSLA"]);
+  assert.match(snapshot.copy.zh, /Binance Spot 官方 24h ticker/);
+  assert.match(snapshot.copy.zh, /币股代币不等于登记股票/);
 });
 
 test("AI allowance differentiates guest and signed-in users and resets stale dates", () => {
