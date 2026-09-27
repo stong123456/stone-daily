@@ -43,7 +43,7 @@ export function ShareCardButton({ content, className = "button button--secondary
     if (navigator.share && navigator.canShare?.({ files: [file] })) {
       await navigator.share({ title: content.title, text: content.shareText || content.summary, files: [file] });
     } else {
-      await navigator.clipboard?.writeText(content.shareText || `${content.title}\n${content.summary}\nhttps://stonedaily.xyz`);
+      await navigator.clipboard?.writeText(content.shareText || `${content.title}\n${content.summary}\nStone Daily · @Stone141319`);
       download();
     }
     setShared(true);

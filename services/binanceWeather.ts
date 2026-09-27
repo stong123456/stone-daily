@@ -120,7 +120,7 @@ export function buildBinanceWeatherCopy(snapshot: Omit<BinanceWeatherSnapshot, "
       "普通人怎么看：先看上涨广度是否持续，再看领涨资产的成交深度；不要因为一个极端涨幅就把整个市场理解成牛市。币股代币不等于登记股票，价格还受换算倍数、链上流动性、托管和地区规则影响。",
       "",
       "数据源：Binance Spot 官方 24h ticker；Binance Web3 Ondo 币股公开目录与动态行情。加密榜已剔除稳定币、杠杆币和 24h 成交额低于 10 万 USDT 的极低流动性样本。",
-      "Stone Daily｜stonedaily.xyz｜信息仅供参考，不构成投资建议",
+      "Stone Daily｜@Stone141319｜信息仅供参考，不构成投资建议",
       "#Binance #币安 #加密货币 #币股 #StoneDaily",
     ].join("\n"),
     en: [
@@ -140,7 +140,7 @@ export function buildBinanceWeatherCopy(snapshot: Omit<BinanceWeatherSnapshot, "
       "Read it calmly: confirm breadth and depth before extrapolating one extreme mover to the whole market. Tokenized stocks are not registered shares and remain subject to multipliers, on-chain liquidity, custody and regional rules.",
       "",
       "Sources: official Binance Spot 24h tickers and Binance Web3 public Ondo tokenized-stock data. Stablecoins, leveraged tokens and crypto pairs below 100k USDT in 24h quote volume are excluded from rankings.",
-      "Stone Daily | stonedaily.xyz | Information only, not investment advice",
+      "Stone Daily | @Stone141319 | Information only, not investment advice",
       "#Binance #Crypto #TokenizedStocks #StoneDaily",
     ].join("\n"),
   };

@@ -109,6 +109,7 @@ test("Binance weather separates crypto and tokenized-stock gainers and decliners
   assert.deepEqual(snapshot.stocks.decliners.map((item) => item.underlying), ["TSLA"]);
   assert.match(snapshot.copy.zh, /Binance Spot 官方 24h ticker/);
   assert.match(snapshot.copy.zh, /币股代币不等于登记股票/);
+  assert.doesNotMatch(snapshot.copy.zh, /https?:\/\/|stonedaily\.xyz|www\./i);
 });
 
 test("AI allowance differentiates guest and signed-in users and resets stale dates", () => {

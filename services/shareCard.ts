@@ -248,7 +248,7 @@ async function renderMarketWeatherCard(
   context.fillText(en ? "DAILY MARKET WEATHER" : "DAILY MARKET WEATHER · 今日市场天气", 1146, 55);
   context.fillStyle = "#71828e";
   context.font = "500 13px system-ui, sans-serif";
-  context.fillText(content.detail || "stonedaily.xyz", 1146, 79);
+  context.fillText(content.detail || "Stone Daily · @Stone141319", 1146, 79);
   context.textAlign = "left";
 
   roundedRect(context, 54, 106, 1092, 198, 22);
@@ -411,7 +411,7 @@ async function renderMarketWeatherCard(
   context.textAlign = "right";
   context.fillStyle = "#315c7b";
   context.font = "800 16px system-ui, sans-serif";
-  context.fillText("stonedaily.xyz  ·  @Stone141319", 1146, 887);
+  context.fillText("Stone Daily  ·  @Stone141319", 1146, 887);
   context.textAlign = "left";
 
   return canvasToBlob(canvas);
@@ -496,7 +496,7 @@ export async function renderShareCard(content: ShareCardContent) {
   context.textAlign = "right";
   context.fillStyle = "#315c7b";
   context.font = "700 22px system-ui, sans-serif";
-  context.fillText("stonedaily.xyz", 1128, 630);
+  context.fillText("Stone Daily  ·  @Stone141319", 1128, 630);
   context.textAlign = "left";
 
   return canvasToBlob(canvas);
