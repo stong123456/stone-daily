@@ -14,6 +14,22 @@ import type { MarketAsset } from "@/types/market";
 
 type WeatherScope = "all" | "binance";
 
+function withTimeout<T>(promise: Promise<T>, timeoutMs = 12_000): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = window.setTimeout(() => reject(new Error("Market weather request timed out")), timeoutMs);
+    promise.then(
+      (value) => {
+        window.clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        window.clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
+}
+
 function formatChinaDateTime(value: string, language: "zh" | "en") {
   return new Intl.DateTimeFormat(language === "en" ? "en-US" : "zh-CN", {
     timeZone: "Asia/Shanghai",
@@ -53,19 +69,25 @@ export function MarketWeatherCard() {
 
   useEffect(() => {
     let active = true;
+    let pendingGroups = 2;
+    const finishGroup = () => {
+      pendingGroups -= 1;
+      if (active && pendingGroups === 0) setLoading(false);
+    };
+    const markFailed = (failedScope: WeatherScope) => {
+      if (!active) return;
+      setFailedScopes((current) => current.includes(failedScope) ? current : [...current, failedScope]);
+    };
     setLoading(true);
+    setFailedScopes([]);
+
     Promise.allSettled([
-      fetchMarketFeed("crypto"),
-      fetchMarketFeed("stocks"),
-      fetch("/api/binance-weather", { cache: "no-store" }).then(async (response) => {
-        if (!response.ok) throw new Error("Binance weather unavailable");
-        return response.json() as Promise<BinanceWeatherSnapshot>;
-      }),
-    ]).then(([cryptoResult, stockResult, binanceResult]) => {
+      withTimeout(fetchMarketFeed("crypto")),
+      withTimeout(fetchMarketFeed("stocks")),
+    ]).then(([cryptoResult, stockResult]) => {
       if (!active) return;
       const crypto = cryptoResult.status === "fulfilled" ? cryptoResult.value : null;
       const stocks = stockResult.status === "fulfilled" ? stockResult.value : null;
-      const failures: WeatherScope[] = [];
       if (crypto || stocks) {
         setWholeWeather(buildMarketWeather({
           cryptoAssets: crypto?.assets ?? [],
@@ -77,13 +99,17 @@ export function MarketWeatherCard() {
           updatedAt: [crypto?.updatedAt, stocks?.updatedAt].filter(Boolean).sort().at(-1),
         }));
       } else {
-        failures.push("all");
+        markFailed("all");
       }
-      if (binanceResult.status === "fulfilled") setBinanceSnapshot(binanceResult.value);
-      else failures.push("binance");
-      setFailedScopes(failures);
-      setLoading(false);
-    });
+    }).finally(finishGroup);
+
+    withTimeout(fetch("/api/binance-weather", { cache: "no-store" }).then(async (response) => {
+      if (!response.ok) throw new Error("Binance weather unavailable");
+      return response.json() as Promise<BinanceWeatherSnapshot>;
+    })).then((snapshot) => {
+      if (active) setBinanceSnapshot(snapshot);
+    }).catch(() => markFailed("binance")).finally(finishGroup);
+
     return () => {
       active = false;
     };
