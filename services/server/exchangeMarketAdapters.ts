@@ -169,6 +169,10 @@ const BINANCE_FEATURED_TICKERS = [
   "COIN", "MSTR", "HOOD", "CRCL", "JPM", "BAC", "V", "MA",
   "XOM", "CVX", "LLY", "NVO", "WMT", "COST", "DIS", "NKE",
 ];
+const BINANCE_SPOT_TICKER_URLS = [
+  "https://api-gcp.binance.com/api/v3/ticker/24hr?type=MINI",
+  "https://data-api.binance.vision/api/v3/ticker/24hr?type=MINI",
+] as const;
 const MARKET_FETCH_TIMEOUT_MS = 14_000;
 const MARKET_REQUEST_HEADERS = {
   Accept: "application/json",
@@ -281,7 +285,9 @@ function cryptoAsset(input: {
 }
 
 async function fetchBinanceCrypto(): Promise<ProviderResult> {
-  const tickers = await fetchJson<BinanceTicker[]>("https://api-gcp.binance.com/api/v3/ticker/24hr?type=MINI", 5, undefined, "no-store");
+  const tickers = await Promise.any(BINANCE_SPOT_TICKER_URLS.map((url) => (
+    fetchJson<BinanceTicker[]>(url, 5, undefined, "no-store")
+  )));
   const assets = tickers.flatMap((ticker): MarketAsset[] => {
     if (!ticker.symbol.endsWith("USDT")) return [];
     const symbol = ticker.symbol.replace(/USDT$/, "");

@@ -106,7 +106,7 @@ export function MarketWeatherCard() {
     withTimeout(fetch("/api/binance-weather", { cache: "no-store" }).then(async (response) => {
       if (!response.ok) throw new Error("Binance weather unavailable");
       return response.json() as Promise<BinanceWeatherSnapshot>;
-    })).then((snapshot) => {
+    }), 35_000).then((snapshot) => {
       if (active) setBinanceSnapshot(snapshot);
     }).catch(() => markFailed("binance")).finally(finishGroup);
 
