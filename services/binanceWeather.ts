@@ -43,13 +43,13 @@ const stableAssets = new Set(["USDT", "USDC", "FDUSD", "USDE", "DAI", "TUSD", "U
 function signedMove(asset?: MarketAsset) {
   if (!asset) return "暂无有效样本";
   const sign = asset.change24h >= 0 ? "+" : "";
-  return `${canonicalAssetSymbol(asset)} ${sign}${asset.change24h.toFixed(2)}%`;
+  return `$${canonicalAssetSymbol(asset)} ${sign}${asset.change24h.toFixed(2)}%`;
 }
 
 function englishMove(asset?: MarketAsset) {
   if (!asset) return "No valid sample";
   const sign = asset.change24h >= 0 ? "+" : "";
-  return `${canonicalAssetSymbol(asset)} ${sign}${asset.change24h.toFixed(2)}%`;
+  return `$${canonicalAssetSymbol(asset)} ${sign}${asset.change24h.toFixed(2)}%`;
 }
 
 function rankLane(assets: MarketAsset[], catalogCount: number, isCrypto: boolean): BinanceWeatherLane {
