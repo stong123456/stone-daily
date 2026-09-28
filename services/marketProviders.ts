@@ -22,12 +22,33 @@ export interface MarketProviderSummary {
   updatedAt?: string;
 }
 
+const CLIENT_CACHE_TTL_MS = 15_000;
+const clientFeedCache = new Map<string, { expiresAt: number; value: MarketFeedResult }>();
+const pendingFeeds = new Map<string, Promise<MarketFeedResult>>();
+
 export async function fetchMarketFeed(kind: "crypto" | "stocks", query = ""): Promise<MarketFeedResult> {
+  const normalizedQuery = query.trim();
+  const cacheKey = `${kind}:${normalizedQuery.toUpperCase()}`;
+  const cached = clientFeedCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) return cached.value;
+
+  const pending = pendingFeeds.get(cacheKey);
+  if (pending) return pending;
+
   const params = new URLSearchParams({ kind });
-  if (query.trim()) params.set("q", query.trim());
-  const response = await fetch(`/api/markets?${params.toString()}`, { cache: "no-store" });
-  if (!response.ok) throw new Error("行情服务暂时不可用");
-  return response.json() as Promise<MarketFeedResult>;
+  if (normalizedQuery) params.set("q", normalizedQuery);
+  const request = fetch(`/api/markets?${params.toString()}`, { cache: "no-store" })
+    .then((response) => {
+      if (!response.ok) throw new Error("行情服务暂时不可用");
+      return response.json() as Promise<MarketFeedResult>;
+    })
+    .then((value) => {
+      clientFeedCache.set(cacheKey, { expiresAt: Date.now() + CLIENT_CACHE_TTL_MS, value });
+      return value;
+    })
+    .finally(() => pendingFeeds.delete(cacheKey));
+  pendingFeeds.set(cacheKey, request);
+  return request;
 }
 
 export const providerPlan = [

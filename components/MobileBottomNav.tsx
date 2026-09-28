@@ -2,7 +2,7 @@
 
 import { Bomb, ChartLineUp, Newspaper, Star, UserCircle } from "@phosphor-icons/react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useAppState } from "@/components/AppStateProvider";
 
 const items = [
@@ -15,6 +15,7 @@ const items = [
 
 export function MobileBottomNav() {
   const pathname = usePathname();
+  const router = useRouter();
   const { language } = useAppState();
-  return <nav aria-label={language === "en" ? "Mobile quick navigation" : "移动端快捷导航"} className="mobile-bottom-nav">{items.map(({ href, zh, en, Icon }) => <Link data-active={pathname === href || (href === "/account" && pathname === "/history")} href={href} key={href}><Icon size={20} weight={pathname === href ? "fill" : "regular"} /><span>{language === "en" ? en : zh}</span></Link>)}</nav>;
+  return <nav aria-label={language === "en" ? "Mobile quick navigation" : "移动端快捷导航"} className="mobile-bottom-nav">{items.map(({ href, zh, en, Icon }) => <Link aria-current={pathname === href ? "page" : undefined} data-active={pathname === href || (href === "/account" && pathname === "/history")} href={href} key={href} onFocus={() => router.prefetch(href)} onPointerEnter={() => router.prefetch(href)} prefetch><Icon size={20} weight={pathname === href ? "fill" : "regular"} /><span>{language === "en" ? en : zh}</span></Link>)}</nav>;
 }

@@ -1,5 +1,7 @@
-const CACHE = "stone-daily-shell-v3";
-const SHELL = ["/", "/markets", "/hotspots", "/watchlist", "/account", "/trust", "/offline", "/assets/stone-daily-mark.png"];
+const CACHE = "stone-daily-shell-v4";
+// Keep installation light. Preloading every route competed with the first real
+// navigation on slower connections and small hosting instances.
+const SHELL = ["/offline", "/assets/stone-daily-mark.png"];
 self.addEventListener("install", (event) => { event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(SHELL)).then(() => self.skipWaiting())); });
 self.addEventListener("activate", (event) => { event.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key)))).then(() => self.clients.claim())); });
 self.addEventListener("fetch", (event) => {

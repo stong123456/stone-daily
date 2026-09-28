@@ -3,8 +3,8 @@
 import { Bell, Bomb, BookOpenText, Broadcast, CalendarCheck, CalendarDots, CaretDown, ChartLineUp, CloudSun, FirstAid, List, Newspaper, ShieldCheck, Timer, UserCircle, X, XLogo } from "@phosphor-icons/react";
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { type MouseEvent, useEffect, useState } from "react";
 import { AppLanguage, useAppState } from "@/components/AppStateProvider";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { LiveClock } from "@/components/LiveClock";
@@ -36,21 +36,57 @@ const moreGroups = [
 
 function label(language: AppLanguage, zh: string, en: string) { return language === "en" ? en : zh; }
 
+const navigationHrefs = ["/", ...primaryItems.map((item) => item.href), ...moreGroups.flatMap((group) => group.items.map((item) => item.href))];
+
 export function Navbar() {
   const pathname = usePathname();
+  const router = useRouter();
   const { language } = useAppState();
   const isEnglish = language === "en";
   const [open, setOpen] = useState(false);
+  const [pendingHref, setPendingHref] = useState("");
   const moreActive = moreGroups.some((group) => group.items.some((item) => item.href === pathname));
+
+  useEffect(() => { setPendingHref(""); }, [pathname]);
+  useEffect(() => {
+    const browserWindow = window as typeof window & {
+      requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
+      cancelIdleCallback?: (id: number) => void;
+    };
+    const warmRoutes = () => navigationHrefs.forEach((href) => router.prefetch(href));
+    const supportsIdle = typeof browserWindow.requestIdleCallback === "function";
+    const taskId = supportsIdle
+      ? browserWindow.requestIdleCallback(warmRoutes, { timeout: 3_000 })
+      : window.setTimeout(warmRoutes, 1_500);
+    return () => {
+      if (supportsIdle && typeof browserWindow.cancelIdleCallback === "function") browserWindow.cancelIdleCallback(taskId);
+      else window.clearTimeout(taskId);
+    };
+  }, [router]);
+
+  const beginNavigation = (href: string, closeDrawer = false) => (event: MouseEvent<HTMLAnchorElement>) => {
+    if (closeDrawer) setOpen(false);
+    if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || href === pathname) return;
+    setPendingHref(href);
+  };
+  const warmRoute = (href: string) => () => router.prefetch(href);
 
   const brand = <><span className="brand__mark"><Image alt="" aria-hidden height={48} priority src="/assets/stone-daily-mark.png" width={48} /></span><span className="brand__wordmark"><span>Stone</span> <span>Daily</span></span></>;
 
   return <>
+    <div aria-hidden className="route-progress" data-active={Boolean(pendingHref)}><span /></div>
     <div className="top-utility-shell"><div className="top-utility-bar"><LiveClock /><div className="top-utility-actions"><a aria-label={isEnglish ? "Visit Stone @Stone141319 on X" : "在 X 上访问石头 @Stone141319"} className="creator-link creator-link--header" href="https://x.com/Stone141319" rel="noreferrer" target="_blank"><XLogo aria-hidden size={14} weight="fill" /><span>{isEnglish ? "X: Stone" : "X：石头"}</span><small>@Stone141319</small></a><TopWalletButton /></div></div></div>
-    <header className="navbar"><Link aria-label={isEnglish ? "Stone Daily home" : "Stone Daily 首页"} className="brand" href="/" onClick={() => setOpen(false)}>{brand}</Link><nav aria-label={isEnglish ? "Main navigation" : "主导航"} className="navbar__links">{primaryItems.map(({ href, zh, en }) => <Link className="nav-link" data-active={pathname === href} href={href} key={href}>{label(language, zh, en)}</Link>)}<details className="nav-more"><summary className="nav-link" data-active={moreActive}>{isEnglish ? "More" : "更多"}<CaretDown size={14} /></summary><div className="nav-more__menu">{moreGroups.map((group) => <section key={group.zh}><strong>{label(language, group.zh, group.en)}</strong>{group.items.map(({ href, zh, en, Icon }) => <Link data-active={pathname === href} href={href} key={href}><Icon size={17} /><span>{label(language, zh, en)}</span></Link>)}</section>)}</div></details></nav><div className="navbar__actions"><LanguageSwitcher compact /><ThemeSwitcher compact /><button aria-expanded={open} aria-label={open ? (isEnglish ? "Close menu" : "关闭菜单") : (isEnglish ? "Open menu" : "打开菜单")} className="icon-button mobile-menu-button" onClick={() => setOpen((value) => !value)} type="button">{open ? <X size={20} /> : <List size={20} />}</button></div></header>
+    <header className="navbar">
+      <Link aria-label={isEnglish ? "Stone Daily home" : "Stone Daily 首页"} className="brand" href="/" onClick={beginNavigation("/", true)} onFocus={warmRoute("/")} onPointerEnter={warmRoute("/")} prefetch>{brand}</Link>
+      <nav aria-label={isEnglish ? "Main navigation" : "主导航"} className="navbar__links">
+        {primaryItems.map(({ href, zh, en }) => <Link aria-current={pathname === href ? "page" : undefined} className="nav-link" data-active={pathname === href} data-pending={pendingHref === href} href={href} key={href} onClick={beginNavigation(href)} onFocus={warmRoute(href)} onPointerEnter={warmRoute(href)} prefetch>{label(language, zh, en)}</Link>)}
+        <details className="nav-more"><summary className="nav-link" data-active={moreActive}>{isEnglish ? "More" : "更多"}<CaretDown size={14} /></summary><div className="nav-more__menu">{moreGroups.map((group) => <section key={group.zh}><strong>{label(language, group.zh, group.en)}</strong>{group.items.map(({ href, zh, en, Icon }) => <Link aria-current={pathname === href ? "page" : undefined} data-active={pathname === href} data-pending={pendingHref === href} href={href} key={href} onClick={beginNavigation(href)} onFocus={warmRoute(href)} onPointerEnter={warmRoute(href)} prefetch><Icon size={17} /><span>{label(language, zh, en)}</span></Link>)}</section>)}</div></details>
+      </nav>
+      <div className="navbar__actions"><LanguageSwitcher compact /><ThemeSwitcher compact /><button aria-expanded={open} aria-label={open ? (isEnglish ? "Close menu" : "关闭菜单") : (isEnglish ? "Open menu" : "打开菜单")} className="icon-button mobile-menu-button" onClick={() => setOpen((value) => !value)} type="button">{open ? <X size={20} /> : <List size={20} />}</button></div>
+    </header>
 
-    <aside className="sidebar-nav" aria-label={isEnglish ? "Side navigation" : "侧边导航"}><Link aria-label={isEnglish ? "Stone Daily home" : "Stone Daily 首页"} className="brand" href="/">{brand}</Link><nav className="sidebar-nav__links">{primaryItems.map(({ href, zh, en, Icon }) => <Link className="sidebar-link" data-active={pathname === href} href={href} key={href}><Icon aria-hidden size={20} /><span>{label(language, zh, en)}</span></Link>)}<span className="sidebar-nav__divider">{isEnglish ? "More" : "更多"}</span>{moreGroups.flatMap((group) => group.items).map(({ href, zh, en, Icon }) => <Link className="sidebar-link" data-active={pathname === href} href={href} key={href}><Icon aria-hidden size={20} /><span>{label(language, zh, en)}</span></Link>)}</nav><div className="sidebar-nav__bottom"><LanguageSwitcher /><ThemeSwitcher /><div className="sidebar-note"><FirstAid aria-hidden size={22} weight="duotone" /><strong>{isEnglish ? "Clarity is your best protection" : "理性，是最好的护身符"}</strong><span>{isEnglish ? "Markets move. Take care of your state of mind first." : "市场有涨跌，先照顾好自己的情绪。"}</span></div></div></aside>
+    <aside className="sidebar-nav" aria-label={isEnglish ? "Side navigation" : "侧边导航"}><Link aria-label={isEnglish ? "Stone Daily home" : "Stone Daily 首页"} className="brand" href="/" onClick={beginNavigation("/")} onFocus={warmRoute("/")} onPointerEnter={warmRoute("/")} prefetch>{brand}</Link><nav className="sidebar-nav__links">{primaryItems.map(({ href, zh, en, Icon }) => <Link aria-current={pathname === href ? "page" : undefined} className="sidebar-link" data-active={pathname === href} data-pending={pendingHref === href} href={href} key={href} onClick={beginNavigation(href)} onFocus={warmRoute(href)} onPointerEnter={warmRoute(href)} prefetch><Icon aria-hidden size={20} /><span>{label(language, zh, en)}</span></Link>)}<span className="sidebar-nav__divider">{isEnglish ? "More" : "更多"}</span>{moreGroups.flatMap((group) => group.items).map(({ href, zh, en, Icon }) => <Link aria-current={pathname === href ? "page" : undefined} className="sidebar-link" data-active={pathname === href} data-pending={pendingHref === href} href={href} key={href} onClick={beginNavigation(href)} onFocus={warmRoute(href)} onPointerEnter={warmRoute(href)} prefetch><Icon aria-hidden size={20} /><span>{label(language, zh, en)}</span></Link>)}</nav><div className="sidebar-nav__bottom"><LanguageSwitcher /><ThemeSwitcher /><div className="sidebar-note"><FirstAid aria-hidden size={22} weight="duotone" /><strong>{isEnglish ? "Clarity is your best protection" : "理性，是最好的护身符"}</strong><span>{isEnglish ? "Markets move. Take care of your state of mind first." : "市场有涨跌，先照顾好自己的情绪。"}</span></div></div></aside>
 
-    <div className="mobile-drawer" data-open={open}><nav aria-label={isEnglish ? "Mobile navigation" : "移动端导航"}>{primaryItems.map(({ href, zh, en, Icon }) => <Link className="sidebar-link" data-active={pathname === href} href={href} key={href} onClick={() => setOpen(false)}><Icon aria-hidden size={20} /><span>{label(language, zh, en)}</span></Link>)}{moreGroups.map((group) => <section className="mobile-drawer__group" key={group.zh}><strong>{label(language, group.zh, group.en)}</strong>{group.items.map(({ href, zh, en, Icon }) => <Link className="sidebar-link" data-active={pathname === href} href={href} key={href} onClick={() => setOpen(false)}><Icon aria-hidden size={20} /><span>{label(language, zh, en)}</span></Link>)}</section>)}</nav><div className="mobile-drawer__settings"><LanguageSwitcher /><ThemeSwitcher /></div></div>
+    <div className="mobile-drawer" data-open={open}><nav aria-label={isEnglish ? "Mobile navigation" : "移动端导航"}>{primaryItems.map(({ href, zh, en, Icon }) => <Link aria-current={pathname === href ? "page" : undefined} className="sidebar-link" data-active={pathname === href} data-pending={pendingHref === href} href={href} key={href} onClick={beginNavigation(href, true)} onFocus={warmRoute(href)} onPointerEnter={warmRoute(href)} prefetch><Icon aria-hidden size={20} /><span>{label(language, zh, en)}</span></Link>)}{moreGroups.map((group) => <section className="mobile-drawer__group" key={group.zh}><strong>{label(language, group.zh, group.en)}</strong>{group.items.map(({ href, zh, en, Icon }) => <Link aria-current={pathname === href ? "page" : undefined} className="sidebar-link" data-active={pathname === href} data-pending={pendingHref === href} href={href} key={href} onClick={beginNavigation(href, true)} onFocus={warmRoute(href)} onPointerEnter={warmRoute(href)} prefetch><Icon aria-hidden size={20} /><span>{label(language, zh, en)}</span></Link>)}</section>)}</nav><div className="mobile-drawer__settings"><LanguageSwitcher /><ThemeSwitcher /></div></div>
   </>;
 }
