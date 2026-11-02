@@ -131,13 +131,13 @@ export function buildMarketShareContent(weather: LiveMarketWeather, language: "z
       { label: en ? "HIGH VOL" : "高波动占比", value: `${weather.highVolatilityShare}%` },
     ],
     score: weather.score,
-    leaders: weather.topMovers.slice(0, 6).map((asset, index) => ({
+    leaders: weather.topMovers.slice(0, 5).map((asset, index) => ({
       rank: index + 1,
       symbol: canonicalAssetSymbol(asset),
       venue: asset.venue || (en ? "Market feed" : "行情源"),
       change: `${asset.change24h >= 0 ? "+" : ""}${asset.change24h.toFixed(2)}%`,
     })),
-    decliners: weather.laggards.slice(0, 3).map((asset, index) => ({
+    decliners: weather.laggards.slice(0, 5).map((asset, index) => ({
       rank: index + 1,
       symbol: canonicalAssetSymbol(asset),
       venue: asset.venue || (en ? "Market feed" : "行情源"),
@@ -167,12 +167,12 @@ export function buildBinanceMarketShareContent(snapshot: BinanceWeatherSnapshot,
     minute: "2-digit",
     hour12: false,
   }).format(new Date(snapshot.updatedAt));
-  const gains = [...snapshot.crypto.gainers.slice(0, 2), ...snapshot.stocks.gainers.slice(0, 2)]
+  const gains = [...snapshot.crypto.gainers.slice(0, 5), ...snapshot.stocks.gainers.slice(0, 5)]
     .sort((a, b) => b.change24h - a.change24h)
-    .slice(0, 3);
-  const losses = [...snapshot.crypto.decliners.slice(0, 2), ...snapshot.stocks.decliners.slice(0, 2)]
+    .slice(0, 5);
+  const losses = [...snapshot.crypto.decliners.slice(0, 5), ...snapshot.stocks.decliners.slice(0, 5)]
     .sort((a, b) => a.change24h - b.change24h)
-    .slice(0, 3);
+    .slice(0, 5);
   const leaders = (assets: typeof gains) => assets.map((asset, index) => ({
     rank: index + 1,
     symbol: canonicalAssetSymbol(asset),
@@ -331,21 +331,22 @@ async function renderMarketWeatherCard(
   context.fillStyle = "#075dad";
   context.font = "800 14px system-ui, 'Noto Sans SC', sans-serif";
   const hasDecliners = Boolean(content.decliners?.length);
-  context.fillText(hasDecliners ? (en ? "GAINERS / DECLINERS" : "涨幅榜 / 跌幅榜") : (en ? "LIVE LEADERS" : "实时领涨"), 54, 483);
+  context.fillText(hasDecliners ? (en ? "TOP 5 GAINERS / DECLINERS" : "涨幅前 5 / 跌幅前 5") : (en ? "LIVE LEADERS" : "实时领涨"), 54, 483);
   context.fillStyle = "#6c7f8c";
   context.font = "500 12px system-ui, 'Noto Sans SC', sans-serif";
   drawWrappedText(context, hasDecliners
-    ? (en ? "Top row: gainers · Bottom row: decliners" : "上排看领涨，下排看领跌；涨跌同屏才完整")
+    ? (en ? "Top row: five gainers · Bottom row: five decliners" : "上排 5 个领涨，下排 5 个领跌；涨跌同屏更完整")
     : (en ? "Deduplicated by symbol; higher-volume venue quotes take priority" : "按代码去重，优先采用成交量更高的交易所报价"), 54, 507, 176, 3, 17);
 
   const leaders = hasDecliners
-    ? [...(content.leaders?.slice(0, 3) ?? []), ...(content.decliners?.slice(0, 3) ?? [])]
+    ? [...(content.leaders?.slice(0, 5) ?? []), ...(content.decliners?.slice(0, 5) ?? [])]
     : content.leaders?.slice(0, 6) ?? [];
-  const leaderGap = 10;
-  const leaderWidth = (894 - leaderGap * 2) / 3;
+  const leaderColumns = hasDecliners ? 5 : 3;
+  const leaderGap = hasDecliners ? 8 : 10;
+  const leaderWidth = (894 - leaderGap * (leaderColumns - 1)) / leaderColumns;
   leaders.forEach((leader, index) => {
-    const column = index % 3;
-    const row = Math.floor(index / 3);
+    const column = index % leaderColumns;
+    const row = Math.floor(index / leaderColumns);
     const x = 252 + column * (leaderWidth + leaderGap);
     const y = 466 + row * 58;
     roundedRect(context, x, y, leaderWidth, 50, 11);
@@ -354,18 +355,18 @@ async function renderMarketWeatherCard(
     context.strokeStyle = "rgba(49,92,123,.16)";
     context.stroke();
     context.fillStyle = "#8a99a3";
-    context.font = "600 12px system-ui, sans-serif";
-    context.fillText(String(leader.rank), x + 12, y + 29);
+    context.font = "600 11px system-ui, sans-serif";
+    context.fillText(String(leader.rank), x + 10, y + 21);
     context.fillStyle = "#17344a";
-    context.font = "800 15px system-ui, sans-serif";
-    context.fillText(leader.symbol, x + 36, y + 22);
+    context.font = "800 13px system-ui, sans-serif";
+    context.fillText(leader.symbol, x + 28, y + 21, leaderWidth - 40);
     context.fillStyle = "#7b8b96";
-    context.font = "500 10px system-ui, sans-serif";
-    context.fillText(leader.venue, x + 36, y + 38);
+    context.font = "500 9.5px system-ui, sans-serif";
+    context.fillText(leader.venue, x + 12, y + 39, leaderWidth * .54);
     context.textAlign = "right";
     context.fillStyle = leader.change.startsWith("-") ? "#b44949" : "#34834a";
-    context.font = "800 13px system-ui, sans-serif";
-    context.fillText(leader.change, x + leaderWidth - 14, y + 29);
+    context.font = "800 11.5px system-ui, sans-serif";
+    context.fillText(leader.change, x + leaderWidth - 10, y + 39, leaderWidth * .42);
     context.textAlign = "left";
   });
 
