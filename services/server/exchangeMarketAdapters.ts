@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { MarketAsset } from "@/types/market";
+import { fetchFirstValidFromEndpointGroups, fetchValidWithRetry } from "@/services/server/providerResilience";
 
 export type ProviderStatus = "live" | "cached" | "catalog" | "unavailable";
 
@@ -169,9 +170,16 @@ const BINANCE_FEATURED_TICKERS = [
   "COIN", "MSTR", "HOOD", "CRCL", "JPM", "BAC", "V", "MA",
   "XOM", "CVX", "LLY", "NVO", "WMT", "COST", "DIS", "NKE",
 ];
-const BINANCE_SPOT_TICKER_URLS = [
-  "https://api-gcp.binance.com/api/v3/ticker/24hr?type=MINI",
-  "https://data-api.binance.vision/api/v3/ticker/24hr?type=MINI",
+const BINANCE_SPOT_TICKER_ENDPOINT_GROUPS = [
+  [
+    "https://data-api.binance.vision/api/v3/ticker/24hr?type=MINI",
+    "https://api-gcp.binance.com/api/v3/ticker/24hr?type=MINI",
+  ],
+  [
+    "https://api.binance.com/api/v3/ticker/24hr?type=MINI",
+    "https://www.binance.com/api/v3/ticker/24hr?type=MINI",
+    "https://api1.binance.com/api/v3/ticker/24hr?type=MINI",
+  ],
 ] as const;
 const MARKET_FETCH_TIMEOUT_MS = 14_000;
 const MARKET_REQUEST_HEADERS = {
@@ -238,7 +246,7 @@ function krakenFuturesXStockUnderlying(instrument: KrakenFuturesInstrument) {
   return (suffixMatch?.[1] ?? instrument.base.replace(/x$/i, "")).toUpperCase();
 }
 
-export async function fetchJson<T>(url: string, _revalidate = 8, headers?: HeadersInit, _cacheMode: "next" | "no-store" = "next"): Promise<T> {
+export async function fetchJson<T>(url: string, _revalidate = 8, headers?: HeadersInit, _cacheMode: "next" | "no-store" = "next", timeoutMs = MARKET_FETCH_TIMEOUT_MS): Promise<T> {
   const requestHeaders = new Headers(MARKET_REQUEST_HEADERS);
   new Headers(headers).forEach((value, key) => requestHeaders.set(key, value));
   const response = await fetch(url, {
@@ -247,7 +255,7 @@ export async function fetchJson<T>(url: string, _revalidate = 8, headers?: Heade
     // the exchanges' multi-megabyte raw payloads again in Next.js caused slow disk
     // writes and timeout cascades on small production instances.
     cache: "no-store",
-    signal: AbortSignal.timeout(MARKET_FETCH_TIMEOUT_MS),
+    signal: AbortSignal.timeout(timeoutMs),
   });
   if (!response.ok) throw new Error(`${new URL(url).hostname} ${response.status}`);
   return response.json() as Promise<T>;
@@ -285,9 +293,11 @@ function cryptoAsset(input: {
 }
 
 async function fetchBinanceCrypto(): Promise<ProviderResult> {
-  const tickers = await Promise.any(BINANCE_SPOT_TICKER_URLS.map((url) => (
-    fetchJson<BinanceTicker[]>(url, 5, undefined, "no-store")
-  )));
+  const tickers = await fetchFirstValidFromEndpointGroups<BinanceTicker[]>(BINANCE_SPOT_TICKER_ENDPOINT_GROUPS, {
+    service: "Binance Spot",
+    load: (url) => fetchJson<BinanceTicker[]>(url, 5, undefined, "no-store", 5_000),
+    validate: (value) => Array.isArray(value) && value.length > 0,
+  });
   const assets = tickers.flatMap((ticker): MarketAsset[] => {
     if (!ticker.symbol.endsWith("USDT")) return [];
     const symbol = ticker.symbol.replace(/USDT$/, "");
@@ -310,7 +320,12 @@ async function fetchBinanceCrypto(): Promise<ProviderResult> {
 }
 
 async function fetchOkxCrypto(): Promise<ProviderResult> {
-  const payload = await fetchJson<{ data?: OkxTicker[] }>("https://www.okx.com/api/v5/market/tickers?instType=SPOT", 5);
+  const url = "https://www.okx.com/api/v5/market/tickers?instType=SPOT";
+  const payload = await fetchValidWithRetry(url, 2, {
+    service: "OKX Spot",
+    load: (endpoint) => fetchJson<{ code?: string; msg?: string; data?: OkxTicker[] }>(endpoint, 5, undefined, "no-store", 7_000),
+    validate: (value) => value.code === "0" && Array.isArray(value.data) && value.data.length > 0,
+  });
   const assets = (payload.data ?? []).flatMap((ticker): MarketAsset[] => {
     const parts = ticker.instId.split("-");
     const quote = parts.at(-1)?.toUpperCase() ?? "";

@@ -81,27 +81,45 @@ export function MarketWeatherCard() {
     setLoading(true);
     setFailedScopes([]);
 
-    Promise.allSettled([
-      withTimeout(fetchMarketFeed("crypto")),
-      withTimeout(fetchMarketFeed("stocks")),
-    ]).then(([cryptoResult, stockResult]) => {
-      if (!active) return;
-      const crypto = cryptoResult.status === "fulfilled" ? cryptoResult.value : null;
-      const stocks = stockResult.status === "fulfilled" ? stockResult.value : null;
-      if (crypto || stocks) {
-        setWholeWeather(buildMarketWeather({
-          cryptoAssets: crypto?.assets ?? [],
-          stockAssets: stocks?.assets ?? [],
-          cryptoProviders: crypto?.providers,
-          stockProviders: stocks?.providers,
-          cryptoMode: crypto?.mode ?? "fallback",
-          stockMode: stocks?.mode ?? "fallback",
-          updatedAt: [crypto?.updatedAt, stocks?.updatedAt].filter(Boolean).sort().at(-1),
-        }));
-      } else {
-        markFailed("all");
-      }
-    }).finally(finishGroup);
+    let cryptoFeed: Awaited<ReturnType<typeof fetchMarketFeed>> | null = null;
+    let stockFeed: Awaited<ReturnType<typeof fetchMarketFeed>> | null = null;
+    let settledFeeds = 0;
+    const publishWholeWeather = () => {
+      if (!active || (!cryptoFeed && !stockFeed)) return;
+      setWholeWeather(buildMarketWeather({
+        cryptoAssets: cryptoFeed?.assets ?? [],
+        stockAssets: stockFeed?.assets ?? [],
+        cryptoProviders: cryptoFeed?.providers,
+        stockProviders: stockFeed?.providers,
+        cryptoMode: cryptoFeed?.mode ?? "fallback",
+        stockMode: stockFeed?.mode ?? "fallback",
+        updatedAt: [cryptoFeed?.updatedAt, stockFeed?.updatedAt].filter(Boolean).sort().at(-1),
+      }));
+    };
+    const finishFeed = () => {
+      settledFeeds += 1;
+      if (settledFeeds !== 2) return;
+      if (!cryptoFeed && !stockFeed) markFailed("all");
+      finishGroup();
+    };
+
+    withTimeout(fetchMarketFeed("crypto"), 18_000)
+      .then((feed) => {
+        if (!active) return;
+        cryptoFeed = feed;
+        publishWholeWeather();
+      })
+      .catch(() => undefined)
+      .finally(finishFeed);
+
+    withTimeout(fetchMarketFeed("stocks"), 18_000)
+      .then((feed) => {
+        if (!active) return;
+        stockFeed = feed;
+        publishWholeWeather();
+      })
+      .catch(() => undefined)
+      .finally(finishFeed);
 
     withTimeout(fetch("/api/binance-weather", { cache: "no-store" }).then(async (response) => {
       if (!response.ok) throw new Error("Binance weather unavailable");
