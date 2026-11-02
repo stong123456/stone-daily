@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { fetchMarketFeed } from "../services/marketProviders.ts";
-import { fetchFirstValidFromEndpointGroups, fetchValidWithRetry } from "../services/server/providerResilience.ts";
+import { fetchFirstValidFromEndpointGroups, fetchPrimaryWithFallback, fetchValidWithRetry } from "../services/server/providerResilience.ts";
 
 test("deduplicates concurrent client market-feed requests and reuses the short cache", async () => {
   const originalFetch = globalThis.fetch;
@@ -63,4 +63,19 @@ test("retries an invalid OKX response before accepting live data", async () => {
 
   assert.equal(calls, 2);
   assert.equal(payload.data[0]?.instId, "BTC-USDT");
+});
+
+test("uses the shared market stream when Binance REST is region-blocked", async () => {
+  let fallbackCalls = 0;
+  const result = await fetchPrimaryWithFallback(
+    "Binance Spot",
+    async () => { throw new Error("HTTP 418"); },
+    async () => {
+      fallbackCalls += 1;
+      return { assets: [{ symbol: "BTC", price: 100_000 }], count: 1 };
+    },
+  );
+
+  assert.equal(fallbackCalls, 1);
+  assert.equal(result.assets[0]?.symbol, "BTC");
 });

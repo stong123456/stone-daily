@@ -62,3 +62,19 @@ export async function fetchValidWithRetry<T>(
 
   throw new Error(`${options.service} unavailable at ${endpointName(url)} (${failures.join(" | ")})`);
 }
+
+export async function fetchPrimaryWithFallback<T>(
+  service: string,
+  primary: () => Promise<T>,
+  fallback: () => Promise<T>,
+): Promise<T> {
+  try {
+    return await primary();
+  } catch (primaryError) {
+    try {
+      return await fallback();
+    } catch (fallbackError) {
+      throw new Error(`${service} primary failed (${failureReason(primaryError)}); fallback failed (${failureReason(fallbackError)})`);
+    }
+  }
+}

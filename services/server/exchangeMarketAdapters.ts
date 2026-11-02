@@ -1,7 +1,7 @@
 import "server-only";
 
-import type { MarketAsset } from "@/types/market";
-import { fetchFirstValidFromEndpointGroups, fetchValidWithRetry } from "@/services/server/providerResilience";
+import type { MarketAsset, StreamQuoteSnapshot } from "@/types/market";
+import { fetchFirstValidFromEndpointGroups, fetchPrimaryWithFallback, fetchValidWithRetry } from "@/services/server/providerResilience";
 
 export type ProviderStatus = "live" | "cached" | "catalog" | "unavailable";
 
@@ -182,6 +182,8 @@ const BINANCE_SPOT_TICKER_ENDPOINT_GROUPS = [
   ],
 ] as const;
 const MARKET_FETCH_TIMEOUT_MS = 14_000;
+const MARKET_STREAM_INTERNAL_URL = (process.env.STONE_MARKET_STREAM_INTERNAL_URL
+  ?? `http://127.0.0.1:${process.env.STONE_STREAM_INTERNAL_PORT ?? "3102"}`).replace(/\/$/, "");
 const MARKET_REQUEST_HEADERS = {
   Accept: "application/json",
   "User-Agent": "StoneDaily/1.0 (+https://stonedaily.xyz)",
@@ -292,13 +294,8 @@ function cryptoAsset(input: {
   };
 }
 
-async function fetchBinanceCrypto(): Promise<ProviderResult> {
-  const tickers = await fetchFirstValidFromEndpointGroups<BinanceTicker[]>(BINANCE_SPOT_TICKER_ENDPOINT_GROUPS, {
-    service: "Binance Spot",
-    load: (url) => fetchJson<BinanceTicker[]>(url, 5, undefined, "no-store", 5_000),
-    validate: (value) => Array.isArray(value) && value.length > 0,
-  });
-  const assets = tickers.flatMap((ticker): MarketAsset[] => {
+function binanceTickerAssets(tickers: BinanceTicker[]) {
+  return tickers.flatMap((ticker): MarketAsset[] => {
     if (!ticker.symbol.endsWith("USDT")) return [];
     const symbol = ticker.symbol.replace(/USDT$/, "");
     if (BLOCKED_SUFFIXES.some((suffix) => symbol.endsWith(suffix))) return [];
@@ -316,7 +313,40 @@ async function fetchBinanceCrypto(): Promise<ProviderResult> {
       volume: numberOrZero(ticker.quoteVolume),
     })];
   });
+}
+
+async function fetchBinanceRestCrypto(): Promise<ProviderResult> {
+  const tickers = await fetchFirstValidFromEndpointGroups<BinanceTicker[]>(BINANCE_SPOT_TICKER_ENDPOINT_GROUPS, {
+    service: "Binance Spot",
+    load: (url) => fetchJson<BinanceTicker[]>(url, 5, undefined, "no-store", 5_000),
+    validate: (value) => Array.isArray(value) && value.length > 0,
+  });
+  const assets = binanceTickerAssets(tickers);
   return { assets, count: assets.length };
+}
+
+async function fetchBinanceStreamCrypto(): Promise<ProviderResult> {
+  const snapshot = await fetchJson<StreamQuoteSnapshot>(`${MARKET_STREAM_INTERNAL_URL}/snapshot`, 0, undefined, "no-store", 3_000);
+  const cutoff = Date.now() - 30_000;
+  const assets = snapshot.quotes.flatMap((quote): MarketAsset[] => {
+    if (quote.venue !== "Binance" || quote.quoteCurrency !== "USDT" || Date.parse(quote.updatedAt) < cutoff) return [];
+    if (BLOCKED_SUFFIXES.some((suffix) => quote.symbol.endsWith(suffix))) return [];
+    if (!quote.price || !Number.isFinite(quote.price)) return [];
+    return [cryptoAsset({
+      venue: "Binance",
+      symbol: quote.symbol,
+      quote: "USDT",
+      price: quote.price,
+      change24h: quote.change24h,
+      volume: quote.volume,
+    })];
+  });
+  if (!assets.length) throw new Error("shared Binance stream has no fresh quotes");
+  return { assets, count: assets.length };
+}
+
+async function fetchBinanceCrypto(): Promise<ProviderResult> {
+  return fetchPrimaryWithFallback("Binance Spot", fetchBinanceRestCrypto, fetchBinanceStreamCrypto);
 }
 
 async function fetchOkxCrypto(): Promise<ProviderResult> {
