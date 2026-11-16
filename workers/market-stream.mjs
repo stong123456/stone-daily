@@ -28,7 +28,7 @@ const REDIS_TTL_SECONDS = integerFromEnv(
   300,
 );
 const MAX_SSE_CLIENTS = integerFromEnv("MARKET_STREAM_MAX_CLIENTS", 500, 1, 5_000);
-const TRACKED_SYMBOLS = (process.env.MARKET_STREAM_SYMBOLS ?? "BTC,ETH,SOL,XRP,DOGE,ADA,AVAX,LINK,LTC,BCH,BNB,SUI")
+const TRACKED_SYMBOLS = (process.env.MARKET_STREAM_SYMBOLS ?? "BTC,ETH,SOL,XRP,DOGE,ADA,AVAX,LINK,LTC,BCH,BNB,SUI,TRX,DOT,TON,AAVE,UNI,NEAR,ARB,PEPE,RENDER,OKB,ATOM,ETC,FIL,HBAR,APT,ICP,INJ,OP,MKR,IMX,STX,TAO,GRT,SEI,ALGO,VET,XLM,SHIB")
   .split(",")
   .map((symbol) => symbol.trim().toUpperCase())
   .filter(Boolean)
@@ -200,13 +200,13 @@ function connectFeed({ name, url, urls, subscribe, handleMessage, heartbeat }) {
 connectFeed({
   name: "Binance",
   urls: [
-    "wss://data-stream.binance.vision/ws/!miniTicker@arr",
-    "wss://stream.binance.com:443/ws/!miniTicker@arr",
-    "wss://stream.binance.com:9443/ws/!miniTicker@arr",
+    `wss://data-stream.binance.vision/stream?streams=${TRACKED_SYMBOLS.map((symbol) => `${symbol.toLowerCase()}usdt@miniTicker`).join("/")}`,
+    `wss://stream.binance.com:443/stream?streams=${TRACKED_SYMBOLS.map((symbol) => `${symbol.toLowerCase()}usdt@miniTicker`).join("/")}`,
+    `wss://stream.binance.com:9443/stream?streams=${TRACKED_SYMBOLS.map((symbol) => `${symbol.toLowerCase()}usdt@miniTicker`).join("/")}`,
   ],
   handleMessage(raw) {
-    const rows = JSON.parse(raw);
-    if (!Array.isArray(rows)) return;
+    const payload = JSON.parse(raw);
+    const rows = Array.isArray(payload) ? payload : payload?.data ? [payload.data] : [];
     for (const row of rows) {
       if (!row.s?.endsWith("USDT")) continue;
       const symbol = row.s.replace(/USDT$/, "");

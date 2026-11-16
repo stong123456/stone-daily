@@ -42,6 +42,26 @@ type ProviderOutcome = {
 
 const MAX_CRYPTO_PER_PROVIDER = 350;
 const MAX_QUERY_PER_PROVIDER = 150;
+// Render's free instance has a 512 MB memory ceiling. Loading every exchange's
+// full ticker catalogue at once can briefly exceed that ceiling, especially
+// when the crypto and tokenized-stock routes cold-start together.
+const MAX_CONCURRENT_ADAPTER_LOADS = 2;
+let activeAdapterLoads = 0;
+const adapterLoadWaiters: Array<() => void> = [];
+const pendingSnapshots = new Map<string, Promise<MarketSnapshotEnvelope>>();
+
+async function withAdapterLoadSlot<T>(load: () => Promise<T>): Promise<T> {
+  if (activeAdapterLoads >= MAX_CONCURRENT_ADAPTER_LOADS) {
+    await new Promise<void>((resolve) => adapterLoadWaiters.push(resolve));
+  }
+  activeAdapterLoads += 1;
+  try {
+    return await load();
+  } finally {
+    activeAdapterLoads -= 1;
+    adapterLoadWaiters.shift()?.();
+  }
+}
 
 function matchesQuery(asset: MarketAsset, query: string) {
   if (!query) return true;
@@ -57,7 +77,7 @@ async function runAdapters(adapters: MarketProviderAdapter[]): Promise<ProviderO
   return Promise.all(adapters.map(async (adapter) => {
     const startedAt = performance.now();
     try {
-      const result = await adapter.load();
+      const result = await withAdapterLoadSlot(() => adapter.load());
       return { adapter, result, latencyMs: Math.round(performance.now() - startedAt) };
     } catch (error) {
       const reason = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
@@ -171,7 +191,14 @@ async function collectStocks(query: string): Promise<MarketSnapshotEnvelope> {
 }
 
 export async function collectMarketSnapshot(kind: MarketFeedKind, query = "") {
-  return kind === "stocks" ? collectStocks(query) : collectCrypto(query);
+  const key = `${kind}:${query.trim().toUpperCase()}`;
+  const pending = pendingSnapshots.get(key);
+  if (pending) return pending;
+
+  const collection = (kind === "stocks" ? collectStocks(query) : collectCrypto(query))
+    .finally(() => pendingSnapshots.delete(key));
+  pendingSnapshots.set(key, collection);
+  return collection;
 }
 
 export async function collectAndStoreMarketSnapshot(kind: MarketFeedKind) {
