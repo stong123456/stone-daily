@@ -87,7 +87,7 @@ export function MarketIntelligencePanel({ spreads, streaming }: { spreads: Marke
           <article className="market-stream-card">
             <div className="market-card-heading"><span><Waveform size={17} />{en ? "Streaming quotes" : "流式行情"}</span><small>{streaming ? `${streaming.lagMs}ms ${en ? "lag" : "延迟"}` : (en ? "REST snapshot" : "REST 快照")}</small></div>
             <strong>{streaming ? `${streaming.quoteCount} ${en ? "quotes" : "条"}` : (en ? "Waiting to connect" : "待连接")}<small>{streaming?.venues.join(" · ") ?? (en ? "Enabled when the Railway stream is configured" : "配置 Railway 流服务后启用")}</small></strong>
-            <div><Database size={17} /><span>{en ? "The Railway gateway pushes directly; Redis/KV remains an optional short-lived fallback." : "Railway 流网关直接推送；Redis/KV 仅作为可选的短时回退层。"}</span></div>
+            <div><Database size={17} /><span>{en ? "The Stone Daily shared stream pushes directly; Redis/KV remains an optional short-lived fallback." : "Stone Daily 共享行情流直接推送；Redis/KV 仅作为可选的短时回退层。"}</span></div>
           </article>
         </div>
 
