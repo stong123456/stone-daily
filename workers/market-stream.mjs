@@ -28,11 +28,14 @@ const REDIS_TTL_SECONDS = integerFromEnv(
   300,
 );
 const MAX_SSE_CLIENTS = integerFromEnv("MARKET_STREAM_MAX_CLIENTS", 500, 1, 5_000);
+const BYBIT_REST_POLL_MS = integerFromEnv("BYBIT_REST_POLL_MS", 5_000, 3_000, 60_000);
+const BYBIT_WS_URL = process.env.BYBIT_WS_URL?.trim() || "wss://stream.bybit.com/v5/public/spot";
 const TRACKED_SYMBOLS = (process.env.MARKET_STREAM_SYMBOLS ?? "BTC,ETH,SOL,XRP,DOGE,ADA,AVAX,LINK,LTC,BCH,BNB,SUI,TRX,DOT,TON,AAVE,UNI,NEAR,ARB,PEPE,RENDER,OKB,ATOM,ETC,FIL,HBAR,APT,ICP,INJ,OP,MKR,IMX,STX,TAO,GRT,SEI,ALGO,VET,XLM,SHIB")
   .split(",")
   .map((symbol) => symbol.trim().toUpperCase())
   .filter(Boolean)
   .slice(0, 100);
+const TRACKED_SYMBOL_SET = new Set(TRACKED_SYMBOLS);
 const ALLOWED_ORIGINS = new Set(
   (process.env.MARKET_STREAM_ALLOWED_ORIGINS ?? "")
     .split(",")
@@ -118,16 +121,47 @@ async function flushQuotes() {
   }
 }
 
-function connectFeed({ name, url, urls, subscribe, handleMessage, heartbeat }) {
+function connectFeed({ name, url, urls, subscribe, handleMessage, heartbeat, fallbackPoll, fallbackIntervalMs = 10_000 }) {
   let socket;
   let heartbeatTimer;
   let reconnectTimer;
+  let fallbackTimer;
+  let fallbackInFlight = false;
   let stopped = false;
   let attempts = 0;
   let endpointIndex = 0;
   const endpoints = urls?.length ? urls : [url];
   const state = { status: "connecting", reconnects: 0 };
   feedStates.set(name, state);
+
+  const runFallbackPoll = async () => {
+    if (stopped || fallbackInFlight || state.status === "connected" || !fallbackPoll) return;
+    fallbackInFlight = true;
+    try {
+      const count = await fallbackPoll();
+      if (state.status === "connected") return;
+      state.status = "polling";
+      state.transport = "rest";
+      state.fallbackCount = count;
+      state.lastMessageAt = new Date().toISOString();
+      state.lastFallbackError = undefined;
+    } catch (error) {
+      state.lastFallbackError = error instanceof Error ? error.message : String(error);
+    } finally {
+      fallbackInFlight = false;
+    }
+  };
+
+  const startFallbackPoll = () => {
+    if (!fallbackPoll || fallbackTimer) return;
+    void runFallbackPoll();
+    fallbackTimer = setInterval(() => void runFallbackPoll(), fallbackIntervalMs);
+  };
+
+  const stopFallbackPoll = () => {
+    if (fallbackTimer) clearInterval(fallbackTimer);
+    fallbackTimer = undefined;
+  };
 
   const scheduleReconnect = (reason) => {
     if (stopped || reconnectTimer) return;
@@ -145,6 +179,7 @@ function connectFeed({ name, url, urls, subscribe, handleMessage, heartbeat }) {
       reconnectTimer = undefined;
       connect();
     }, delay);
+    startFallbackPoll();
     console.warn(`[market-stream] ${name} ${reason}; reconnecting via ${endpoints[endpointIndex]} in ${delay}ms`);
     try {
       if (socket?.readyState === 0 || socket?.readyState === 1) socket.close();
@@ -166,9 +201,12 @@ function connectFeed({ name, url, urls, subscribe, handleMessage, heartbeat }) {
     socket.addEventListener("open", () => {
       attempts = 0;
       state.status = "connected";
+      state.transport = "websocket";
       state.connectedAt = new Date().toISOString();
+      stopFallbackPoll();
       console.log(`[market-stream] ${name} connected`);
-      if (subscribe) socket.send(JSON.stringify(subscribe));
+      const subscriptions = Array.isArray(subscribe) ? subscribe : subscribe ? [subscribe] : [];
+      for (const subscription of subscriptions) socket.send(JSON.stringify(subscription));
       if (heartbeat) heartbeatTimer = setInterval(() => heartbeat(socket), 20_000);
     });
     socket.addEventListener("message", (event) => {
@@ -195,6 +233,7 @@ function connectFeed({ name, url, urls, subscribe, handleMessage, heartbeat }) {
     state.status = "stopped";
     if (heartbeatTimer) clearInterval(heartbeatTimer);
     if (reconnectTimer) clearTimeout(reconnectTimer);
+    stopFallbackPoll();
     if (socket?.readyState === 1) socket.close();
   };
   shutdownHandlers.push(stop);
@@ -229,10 +268,56 @@ connectFeed({
   },
 });
 
+async function pollBybitSpotTickers() {
+  const endpoints = [
+    "https://api.bybit.com/v5/market/tickers?category=spot",
+    "https://api.bytick.com/v5/market/tickers?category=spot",
+  ];
+  let lastError;
+  for (const endpoint of endpoints) {
+    try {
+      const response = await fetch(endpoint, {
+        cache: "no-store",
+        signal: AbortSignal.timeout(4_000),
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const payload = await response.json();
+      const rows = payload?.result?.list;
+      if (!Array.isArray(rows) || !rows.length) throw new Error("empty ticker list");
+      let count = 0;
+      for (const row of rows) {
+        if (!row?.symbol?.endsWith("USDT")) continue;
+        const symbol = row.symbol.replace(/USDT$/, "");
+        if (!TRACKED_SYMBOL_SET.has(symbol)) continue;
+        updateQuote({
+          venue: "Bybit",
+          symbol,
+          quoteCurrency: "USDT",
+          price: numberOrZero(row.lastPrice),
+          change24h: numberOrZero(row.price24hPcnt) * 100,
+          volume: numberOrZero(row.turnover24h),
+          updatedAt: Date.now(),
+        });
+        count += 1;
+      }
+      if (!count) throw new Error("no tracked tickers");
+      return count;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError ?? new Error("Bybit REST fallback unavailable");
+}
+
 connectFeed({
   name: "Bybit",
-  url: "wss://stream.bybit.com/v5/public/spot",
-  subscribe: { op: "subscribe", args: TRACKED_SYMBOLS.map((symbol) => `tickers.${symbol}USDT`) },
+  url: BYBIT_WS_URL,
+  subscribe: Array.from({ length: Math.ceil(TRACKED_SYMBOLS.length / 10) }, (_, index) => ({
+    op: "subscribe",
+    args: TRACKED_SYMBOLS.slice(index * 10, index * 10 + 10).map((symbol) => `tickers.${symbol}USDT`),
+  })),
+  fallbackPoll: pollBybitSpotTickers,
+  fallbackIntervalMs: BYBIT_REST_POLL_MS,
   heartbeat(socket) {
     if (socket.readyState === 1) socket.send(JSON.stringify({ op: "ping" }));
   },
@@ -335,7 +420,7 @@ const server = createServer((request, response) => {
 
   if (url.pathname === "/health") {
     const feeds = Object.fromEntries(feedStates);
-    const connectedFeeds = Array.from(feedStates.values()).filter((feed) => feed.status === "connected").length;
+    const connectedFeeds = Array.from(feedStates.values()).filter((feed) => feed.status === "connected" || feed.status === "polling").length;
     return jsonResponse(response, 200, {
       status: connectedFeeds ? "healthy" : "starting",
       startedAt,
