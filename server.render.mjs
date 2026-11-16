@@ -81,6 +81,22 @@ const gateway = createServer(async (request, response) => {
   const url = new URL(request.url ?? "/", `http://${request.headers.host ?? "localhost"}`);
 
   if (url.pathname === "/healthz") {
+    response.writeHead(200, {
+      "Content-Type": "application/json; charset=utf-8",
+      "Cache-Control": "no-store",
+    });
+    return response.end(JSON.stringify({
+      status: "healthy",
+      service: "stone-daily-gateway",
+      uptimeSeconds: Math.round(process.uptime()),
+      children: {
+        web: web.exitCode === null && web.signalCode === null,
+        stream: stream.exitCode === null && stream.signalCode === null,
+      },
+    }));
+  }
+
+  if (url.pathname === "/readyz") {
     const [webHealthy, streamHealthy] = await Promise.all([
       serviceHealthy(webPort, "/api/health"),
       serviceHealthy(streamPort, "/health"),
