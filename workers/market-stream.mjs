@@ -138,16 +138,19 @@ function connectFeed({ name, url, urls, subscribe, handleMessage, heartbeat }) {
     state.reconnects += 1;
     endpointIndex = (endpointIndex + 1) % endpoints.length;
     const delay = Math.min(30_000, 1_000 * 2 ** Math.min(attempts, 5));
-    console.warn(`[market-stream] ${name} ${reason}; reconnecting via ${endpoints[endpointIndex]} in ${delay}ms`);
-    try {
-      if (socket?.readyState === 0 || socket?.readyState === 1) socket.close();
-    } catch {
-      // The reconnect timer below is authoritative even if close is unavailable.
-    }
+    // Register the timer before closing the socket. Some WebSocket runtimes
+    // dispatch `close` synchronously from close(), which would otherwise
+    // re-enter this function and create thousands of reconnect timers.
     reconnectTimer = setTimeout(() => {
       reconnectTimer = undefined;
       connect();
     }, delay);
+    console.warn(`[market-stream] ${name} ${reason}; reconnecting via ${endpoints[endpointIndex]} in ${delay}ms`);
+    try {
+      if (socket?.readyState === 0 || socket?.readyState === 1) socket.close();
+    } catch {
+      // The scheduled reconnect remains authoritative even if close is unavailable.
+    }
   };
 
   const connect = () => {
